@@ -1,0 +1,513 @@
+'use strict';
+/* ================= 数据层(存在本机浏览器 localStorage) ================= */
+const LS_KEY = 'jzb_v1';
+const fresh = () => ({ settings: { wifeName: '媳妇', meName: '我', initialBalance: 0 }, months: {} });
+let DB = (() => {
+  try { const d = JSON.parse(localStorage.getItem(LS_KEY)); if (d && d.settings && d.months) return d; } catch (e) {}
+  return fresh();
+})();
+const save = () => localStorage.setItem(LS_KEY, JSON.stringify(DB));
+const r2 = n => Math.round((+n || 0) * 100) / 100;
+const key = (y, m) => `${y}-${String(m).padStart(2, '0')}`;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function mData(y, m, create) {
+  const k = key(y, m);
+  let d = DB.months[k];
+  if (!d && create) { d = { wifeSalary: 0, meSalary: 0, expenses: [], incomes: [] }; DB.months[k] = d; }
+  return d || { wifeSalary: 0, meSalary: 0, expenses: [], incomes: [] };
+}
+function totals(y, m) {
+  const d = mData(y, m);
+  const wExp = d.expenses.filter(e => e.person === 'wife').reduce((s, e) => s + e.amount, 0);
+  const mExp = d.expenses.filter(e => e.person === 'me').reduce((s, e) => s + e.amount, 0);
+  const oi = d.incomes.reduce((s, e) => s + e.amount, 0);
+  return {
+    wifeSalary: r2(d.wifeSalary), meSalary: r2(d.meSalary), otherIncome: r2(oi),
+    income: r2(d.wifeSalary + d.meSalary + oi),
+    wifeExp: r2(wExp), meExp: r2(mExp), expense: r2(wExp + mExp)
+  };
+}
+/* 上月结转 = 初始资金 + 之前所有月份的(收入-支出) */
+function carryover(y, m) {
+  let bal = r2(DB.settings.initialBalance);
+  const target = key(y, m);
+  for (const k of Object.keys(DB.months).sort()) {
+    if (k >= target) continue;
+    const t = totals(+k.slice(0, 4), +k.slice(5, 7));
+    bal = r2(bal + t.income - t.expense);
+  }
+  return bal;
+}
+const balance = (y, m) => { const t = totals(y, m); return r2(carryover(y, m) + t.income - t.expense); };
+const pName = p => p === 'wife' ? DB.settings.wifeName : DB.settings.meName;
+
+function findEntry(kind, id) {
+  for (const k of Object.keys(DB.months)) {
+    const arr = DB.months[k][kind];
+    const i = arr.findIndex(x => x.id === id);
+    if (i >= 0) return { k, arr, i, e: arr[i] };
+  }
+  return null;
+}
+
+/* ================= 工具 ================= */
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = n => '¥' + r2(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const mmdd = ds => `${+ds.slice(5, 7)}月${+ds.slice(8, 10)}日`;
+function today() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+}
+
+/* ================= 界面状态 ================= */
+const now = new Date();
+let cur = { y: now.getFullYear(), m: now.getMonth() + 1 };  // 本月页当前看的月份
+let curY = cur.y;                                           // 年度页当前看的年份
+let tab = 'month';
+let modalCtx = null;
+
+const view = document.getElementById('view');
+const topbar = document.getElementById('topbar');
+const fab = document.getElementById('fab');
+const modalRoot = document.getElementById('modalRoot');
+
+function setTab(t) { tab = t; if (t === 'year') curY = cur.y; render(); }
+
+function render() {
+  renderTop();
+  view.innerHTML = tab === 'month' ? vMonth() : tab === 'year' ? vYear() : vMe();
+  fab.style.display = tab === 'month' ? 'flex' : 'none';
+  document.querySelectorAll('#tabbar button').forEach(b =>
+    b.classList.toggle('on', b.dataset.tab === tab));
+  view.scrollIntoView();
+  window.scrollTo(0, 0);
+}
+
+function renderTop() {
+  if (tab === 'month')
+    topbar.innerHTML = `<button class="nav" data-t="prevM">‹</button><div class="t">${cur.y}年${cur.m}月</div><button class="nav" data-t="nextM">›</button>`;
+  else if (tab === 'year')
+    topbar.innerHTML = `<button class="nav" data-t="prevY">‹</button><div class="t">${curY}年</div><button class="nav" data-t="nextY">›</button>`;
+  else
+    topbar.innerHTML = `<div class="t">设置</div>`;
+}
+
+/* ================= 本月页 ================= */
+const expRow = e => `<div class="row entry tap" data-act="editExp" data-id="${e.id}">
+  <span class="d">${mmdd(e.date)}</span>
+  <span class="chip ${e.person}">${esc(pName(e.person))}</span>
+  <span class="note">${esc(e.note) || '—'}</span>
+  <span class="amt">${fmt(e.amount)}</span></div>`;
+
+const incRow = e => `<div class="row entry tap" data-act="editInc" data-id="${e.id}">
+  <span class="d">${mmdd(e.date)}</span>
+  <span class="chip inc">${esc(e.source) || '其他'}</span>
+  <span class="note">${esc(e.note) || '—'}</span>
+  <span class="amt">+${fmt(e.amount)}</span></div>`;
+
+function vMonth() {
+  const { y, m } = cur;
+  const t = totals(y, m), carry = carryover(y, m), bal = balance(y, m);
+  const d = mData(y, m);
+  const exps = [...d.expenses].sort((a, b) => b.date.localeCompare(a.date));
+  const incs = [...d.incomes].sort((a, b) => b.date.localeCompare(a.date));
+  return `
+  <div class="card hero">
+    <div class="hero-label">${y}年${m}月 结余(还剩多少钱)</div>
+    <div class="hero-bal ${bal < 0 ? 'neg' : ''}">${fmt(bal)}</div>
+    <div class="hero-stats">
+      <div><span>上月结转</span><b>${fmt(carry)}</b></div>
+      <div><span>本月收入</span><b>+${fmt(t.income)}</b></div>
+      <div><span>本月支出</span><b>-${fmt(t.expense)}</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">收入</div>
+    <div class="row tap" data-act="wage" data-p="wife"><span>${esc(pName('wife'))}工资</span><span class="val">${fmt(t.wifeSalary)} <i>›</i></span></div>
+    <div class="row tap" data-act="wage" data-p="me"><span>${esc(pName('me'))}工资</span><span class="val">${fmt(t.meSalary)} <i>›</i></span></div>
+    <div class="row"><span>其他收入(下方明细自动汇总)</span><span class="val">${fmt(t.otherIncome)}</span></div>
+    ${incs.map(incRow).join('')}
+    <button class="btn ghost" data-act="addInc">＋ 添加其他收入</button>
+    <div class="row total"><span>收入合计</span><span class="val">${fmt(t.income)}</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">支出<small>${esc(pName('wife'))} ${fmt(t.wifeExp)} · ${esc(pName('me'))} ${fmt(t.meExp)}</small></div>
+    ${exps.length ? exps.map(expRow).join('') : '<div class="empty">还没有支出记录,点右下角 ＋ 记一笔</div>'}
+    <div class="row total"><span>支出合计</span><span class="val">${fmt(t.expense)}</span></div>
+  </div>`;
+}
+
+/* ================= 年度页 ================= */
+function vYear() {
+  const Y = curY;
+  let rows = '', sumIn = 0, sumOut = 0;
+  for (let m = 1; m <= 12; m++) {
+    const t = totals(Y, m), b = balance(Y, m);
+    sumIn = r2(sumIn + t.income); sumOut = r2(sumOut + t.expense);
+    rows += `<div class="row yrow tap" data-act="gotoM" data-m="${m}">
+      <span class="d">${m}月</span>
+      <span class="yc"><i>收</i>${fmt(t.income)}</span>
+      <span class="yc"><i>支</i>${fmt(t.expense)}</span>
+      <span class="yc bal ${b < 0 ? 'neg' : ''}">${fmt(b)}</span></div>`;
+  }
+  const yearEnd = balance(Y, 12);
+  return `
+  <div class="card">
+    <div class="row tap" data-act="init"><span>初始资金(开始记账时的积蓄)</span><span class="val">${fmt(DB.settings.initialBalance)} <i>›</i></span></div>
+    <div class="row"><span>全年收入</span><span class="val">+${fmt(sumIn)}</span></div>
+    <div class="row"><span>全年支出</span><span class="val">-${fmt(sumOut)}</span></div>
+    <div class="row total"><span>年末结余(12月底)</span><span class="val ${yearEnd < 0 ? 'neg' : ''}">${fmt(yearEnd)}</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">${Y}年 每月一览<small>点月份看明细</small></div>
+    ${rows}
+  </div>
+  <button class="btn primary big" data-act="export">导出 ${Y} 年 Excel</button>`;
+}
+
+/* ================= 我的页 ================= */
+function vMe() {
+  return `
+  <div class="card">
+    <div class="card-title">两口子称呼</div>
+    <div class="row"><span>媳妇显示为</span><input class="mini" data-set="wifeName" value="${esc(DB.settings.wifeName)}" maxlength="6"></div>
+    <div class="row"><span>我显示为</span><input class="mini" data-set="meName" value="${esc(DB.settings.meName)}" maxlength="6"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">数据</div>
+    <div class="row tap" data-act="init"><span>初始资金</span><span class="val">${fmt(DB.settings.initialBalance)} <i>›</i></span></div>
+    <button class="btn ghost" data-act="backup">备份数据(导出JSON)</button>
+    <label class="btn ghost">恢复备份(导入JSON)<input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
+    <button class="btn danger" data-act="wipe">清空全部数据</button>
+  </div>
+  <div class="card">
+    <div class="card-title">导出</div>
+    <button class="btn primary" data-act="export">导出 ${cur.y} 年 Excel</button>
+  </div>
+  <div class="card about">
+    <div class="card-title">说明</div>
+    <p>· 数据只保存在本机浏览器里,不上传任何服务器。</p>
+    <p>· 清除浏览器网站数据会丢账,建议每月「备份数据」一次。</p>
+    <p>· 两口子各用各的手机时数据不互通;可以在一台手机上记,或用备份/恢复搬家。</p>
+    <p>· 导出的 Excel 与电脑版模板一致,自带公式自动算。</p>
+    <p class="ver">家庭记账本 v1.0</p>
+  </div>`;
+}
+
+/* ================= 弹层 ================= */
+function openModal(html) {
+  modalRoot.innerHTML = `<div class="mask"><div class="sheet">${html}</div></div>`;
+}
+function closeModal() { modalRoot.innerHTML = ''; modalCtx = null; }
+
+function numModal(title, val, ctx) {
+  modalCtx = ctx;
+  openModal(`
+    <div class="sheet-title">${esc(title)}</div>
+    <input id="m-num" type="number" inputmode="decimal" step="0.01" min="0" value="${val || ''}" placeholder="0.00">
+    <div class="sheet-btns">
+      <button class="btn ghost" data-mclose>取消</button>
+      <button class="btn primary" data-msave>保存</button>
+    </div>`);
+  setTimeout(() => { const i = document.getElementById('m-num'); if (i) i.focus(); }, 80);
+}
+
+function expModal(e) {
+  modalCtx = { kind: 'exp', id: e ? e.id : null, person: e ? e.person : 'wife' };
+  openModal(`
+    <div class="sheet-title">${e ? '编辑支出' : '记一笔支出'}</div>
+    <div class="seg">
+      <button type="button" data-mp="wife" class="${modalCtx.person === 'wife' ? 'on wife' : ''}">${esc(pName('wife'))}</button>
+      <button type="button" data-mp="me" class="${modalCtx.person === 'me' ? 'on me' : ''}">${esc(pName('me'))}</button>
+    </div>
+    <input id="m-amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="金额(元)" value="${e ? e.amount : ''}">
+    <input id="m-date" type="date" value="${e ? e.date : today()}">
+    <input id="m-note" type="text" maxlength="50" placeholder="备注:花在哪了(如 午饭 / 房贷)" value="${e ? esc(e.note) : ''}">
+    <div class="sheet-btns">
+      ${e ? '<button class="btn danger" data-mdel>删除</button>' : ''}
+      <button class="btn ghost" data-mclose>取消</button>
+      <button class="btn primary" data-msave>保存</button>
+    </div>`);
+  setTimeout(() => { const i = document.getElementById('m-amount'); if (i) i.focus(); }, 80);
+}
+
+function incModal(e) {
+  modalCtx = { kind: 'inc', id: e ? e.id : null };
+  openModal(`
+    <div class="sheet-title">${e ? '编辑其他收入' : '添加其他收入'}</div>
+    <input id="m-source" type="text" maxlength="20" placeholder="来源(如 年终奖 / 红包 / 利息)" value="${e ? esc(e.source) : ''}">
+    <input id="m-amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="金额(元)" value="${e ? e.amount : ''}">
+    <input id="m-date" type="date" value="${e ? e.date : today()}">
+    <input id="m-note" type="text" maxlength="50" placeholder="备注(可空)" value="${e ? esc(e.note) : ''}">
+    <div class="sheet-btns">
+      ${e ? '<button class="btn danger" data-mdel>删除</button>' : ''}
+      <button class="btn ghost" data-mclose>取消</button>
+      <button class="btn primary" data-msave>保存</button>
+    </div>`);
+  setTimeout(() => { const i = document.getElementById('m-source'); if (i) i.focus(); }, 80);
+}
+
+function saveModal() {
+  const ctx = modalCtx;
+  if (!ctx) return;
+  if (ctx.kind === 'exp' || ctx.kind === 'inc') {
+    const amt = parseFloat(document.getElementById('m-amount').value);
+    if (!(amt > 0)) { alert('金额要大于0'); return; }
+    const date = document.getElementById('m-date').value;
+    if (!date) { alert('请选择日期'); return; }
+    const note = document.getElementById('m-note').value.trim();
+    const kind = ctx.kind === 'exp' ? 'expenses' : 'incomes';
+    const yy = +date.slice(0, 4), mm = +date.slice(5, 7);
+    const d = mData(yy, mm, true);
+    if (ctx.id) {
+      const f = findEntry(kind, ctx.id);
+      if (f) {
+        const rec = Object.assign({}, f.e, { date, amount: r2(amt), note });
+        if (kind === 'expenses') rec.person = ctx.person;
+        else rec.source = document.getElementById('m-source').value.trim();
+        if (f.k === key(yy, mm)) f.arr[f.i] = rec;
+        else { f.arr.splice(f.i, 1); d[kind].push(rec); }
+      }
+    } else {
+      const rec = { id: uid(), date, amount: r2(amt), note };
+      if (kind === 'expenses') rec.person = ctx.person;
+      else rec.source = document.getElementById('m-source').value.trim();
+      d[kind].push(rec);
+    }
+  } else if (ctx.kind === 'wage') {
+    const v = parseFloat(document.getElementById('m-num').value) || 0;
+    const d = mData(cur.y, cur.m, true);
+    if (ctx.p === 'wife') d.wifeSalary = r2(v); else d.meSalary = r2(v);
+  } else if (ctx.kind === 'init') {
+    const v = parseFloat(document.getElementById('m-num').value) || 0;
+    DB.settings.initialBalance = r2(v);
+  }
+  save(); closeModal(); render();
+}
+
+function delEntry() {
+  if (!modalCtx || !modalCtx.id) return;
+  const kind = modalCtx.kind === 'exp' ? 'expenses' : 'incomes';
+  const f = findEntry(kind, modalCtx.id);
+  if (f) { f.arr.splice(f.i, 1); save(); }
+  closeModal(); render();
+}
+
+/* ================= 事件 ================= */
+topbar.addEventListener('click', e => {
+  const b = e.target.closest('[data-t]'); if (!b) return;
+  const t = b.dataset.t;
+  if (t === 'prevM') { cur.m--; if (cur.m < 1) { cur.m = 12; cur.y--; } }
+  if (t === 'nextM') { cur.m++; if (cur.m > 12) { cur.m = 1; cur.y++; } }
+  if (t === 'prevY') curY--;
+  if (t === 'nextY') curY++;
+  render();
+});
+
+document.getElementById('tabbar').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab);
+});
+fab.addEventListener('click', () => expModal(null));
+
+view.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'wage') {
+    const t = totals(cur.y, cur.m);
+    numModal(`${pName(el.dataset.p)}工资`, el.dataset.p === 'wife' ? t.wifeSalary : t.meSalary,
+      { kind: 'wage', p: el.dataset.p });
+  }
+  else if (act === 'init') numModal('初始资金', DB.settings.initialBalance, { kind: 'init' });
+  else if (act === 'addInc') incModal(null);
+  else if (act === 'editExp') { const f = findEntry('expenses', el.dataset.id); if (f) expModal(f.e); }
+  else if (act === 'editInc') { const f = findEntry('incomes', el.dataset.id); if (f) incModal(f.e); }
+  else if (act === 'gotoM') { cur = { y: curY, m: +el.dataset.m }; setTab('month'); }
+  else if (act === 'export') exportYear(tab === 'year' ? curY : cur.y);
+  else if (act === 'backup') backup();
+  else if (act === 'wipe') {
+    if (confirm('确定清空全部数据?此操作不可恢复!') && confirm('再想一下,真的要清空吗?建议先备份。')) {
+      DB = fresh(); save(); render();
+    }
+  }
+});
+
+view.addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset && el.dataset.set) {
+    const k = el.dataset.set;
+    const v = el.value.trim().replace(/"/g, '');
+    DB.settings[k] = v || (k === 'wifeName' ? '媳妇' : '我');
+    save(); render(); return;
+  }
+  if (el.id === 'restoreFile' && el.files && el.files[0]) { restore(el.files[0]); el.value = ''; }
+});
+
+modalRoot.addEventListener('click', e => {
+  const t = e.target;
+  if (t.classList && t.classList.contains('mask')) { closeModal(); return; }
+  if (t.closest('[data-mclose]')) { closeModal(); return; }
+  const mp = t.closest('[data-mp]');
+  if (mp && modalCtx) {
+    modalCtx.person = mp.dataset.mp;
+    mp.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('on', 'wife', 'me'));
+    mp.classList.add('on', modalCtx.person);
+    return;
+  }
+  if (t.closest('[data-msave]')) { saveModal(); return; }
+  if (t.closest('[data-mdel]')) { if (confirm('删除这条记录?')) delEntry(); }
+});
+
+/* ================= 备份 / 恢复 ================= */
+async function shareOrDownload(blob, name) {
+  const file = new File([blob], name, { type: blob.type || 'application/octet-stream' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function backup() {
+  const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+  shareOrDownload(blob, `记账本备份_${today().replaceAll('-', '')}.json`);
+}
+function restore(file) {
+  file.text().then(txt => {
+    try {
+      const d = JSON.parse(txt);
+      if (!d || !d.settings || !d.months) throw 0;
+      DB = d; save(); render(); alert('恢复成功');
+    } catch (_) { alert('备份文件不对,恢复失败'); }
+  });
+}
+
+/* ================= 导出 Excel(与电脑模板同结构,带公式) ================= */
+function exportYear(Y) {
+  if (typeof XLSX === 'undefined') { alert('表格组件还没加载好,请联网后再试一次'); return; }
+  const MONEY = '¥#,##0.00', DFMT = 'm"月"d"日"';
+  const wn = DB.settings.wifeName, mn = DB.settings.meName;
+  const wb = XLSX.utils.book_new();
+  const put = (ws, r1, c1, cell) => { ws[XLSX.utils.encode_cell({ r: r1 - 1, c: c1 - 1 })] = cell; };
+  const S = v => ({ t: 's', v: String(v) });
+  const N = (v, z) => ({ t: 'n', v: r2(v), z: z || MONEY });
+  const F = (f, v) => ({ t: 'n', f: f.replace(/^=/, ''), v: r2(v || 0), z: MONEY });
+  const DT = ds => { const [a, b, c] = ds.split('-').map(Number); return { t: 'd', v: new Date(a, b - 1, c), z: DFMT }; };
+
+  /* 年度汇总 */
+  const sum = {};
+  put(sum, 1, 1, S(`${Y}年 家庭收支年度汇总`));
+  put(sum, 3, 1, S('年初初始结余:'));
+  put(sum, 3, 2, N(carryover(Y, 1)));
+  put(sum, 3, 3, S('← 自动: 本年1月之前的累计结余'));
+  ['月份', '上月结转', `${wn}工资`, `${mn}工资`, '其他收入', '收入合计',
+   `${wn}支出`, `${mn}支出`, '支出合计', '本月结余', '备注']
+    .forEach((h, i) => put(sum, 5, 1 + i, S(h)));
+  for (let m = 1; m <= 12; m++) {
+    const r = 5 + m, sh = `'${m}月'`;
+    put(sum, r, 1, S(`${m}月`));
+    ['B4', 'B5', 'B6', 'B7', 'B8', 'B11', 'B12', 'B13', 'B15']
+      .forEach((ref, i) => put(sum, r, 2 + i, F(`${sh}!${ref}`)));
+  }
+  put(sum, 18, 1, S('全年合计'));
+  put(sum, 18, 2, S('—'));
+  const yr = { in: 0, out: 0 };
+  for (let m = 1; m <= 12; m++) { const tt = totals(Y, m); yr.in = r2(yr.in + tt.income); yr.out = r2(yr.out + tt.expense); }
+  put(sum, 18, 3, F('SUM(C6:C17)', yr.in));
+  put(sum, 18, 4, F('SUM(D6:D17)', yr.in));
+  put(sum, 18, 5, F('SUM(E6:E17)', yr.in));
+  put(sum, 18, 6, F('SUM(F6:F17)', yr.in));
+  put(sum, 18, 7, F('SUM(G6:G17)', yr.out));
+  put(sum, 18, 8, F('SUM(H6:H17)', yr.out));
+  put(sum, 18, 9, F('SUM(I6:I17)', yr.out));
+  put(sum, 18, 10, F('J17', balance(Y, 12)));
+  put(sum, 18, 11, S('← 结余列为年末结余'));
+  sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: 10 } });
+  sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, { s: { r: 2, c: 2 }, e: { r: 2, c: 10 } }];
+  sum['!cols'] = [10, 13, 12, 12, 12, 13, 12, 12, 13, 14, 24].map(wch => ({ wch }));
+  XLSX.utils.book_append_sheet(wb, sum, '年度汇总');
+
+  /* 12个月 */
+  for (let m = 1; m <= 12; m++) {
+    const ws = {}, d = mData(Y, m);
+    const exps = [...d.expenses].sort((a, b) => a.date.localeCompare(b.date));
+    const incs = [...d.incomes].sort((a, b) => a.date.localeCompare(b.date));
+    const expRows = Math.max(50, exps.length), incRows = Math.max(15, incs.length);
+    const expS = 19, expE = 18 + expRows;
+    const secI = expE + 2, hdrI = secI + 1, incS = hdrI + 1, incE = incS + incRows - 1;
+
+    put(ws, 1, 1, S(`${Y}年${m}月 家庭收支明细`));
+    put(ws, 3, 1, S('一、收入情况'));
+    const t = totals(Y, m);
+    put(ws, 4, 1, S('上月结余结转')); put(ws, 4, 2, F(m === 1 ? "='年度汇总'!$B$3" : `='${m - 1}月'!$B$15`, carryover(Y, m)));
+    put(ws, 5, 1, S(`${wn}工资`)); if (d.wifeSalary) put(ws, 5, 2, N(d.wifeSalary));
+    put(ws, 6, 1, S(`${mn}工资`)); if (d.meSalary) put(ws, 6, 2, N(d.meSalary));
+    put(ws, 7, 1, S('其他收入')); put(ws, 7, 2, F(`SUM(C${incS}:C${incE})`, t.otherIncome));
+    put(ws, 8, 1, S('本月收入合计')); put(ws, 8, 2, F('B5+B6+B7', t.income));
+    put(ws, 10, 1, S('二、支出情况'));
+    put(ws, 11, 1, S(`${wn}支出`));
+    put(ws, 11, 2, F(`SUMIF($B$${expS}:$B$${expE},"${wn}",$C$${expS}:$C$${expE})`, t.wifeExp));
+    put(ws, 12, 1, S(`${mn}支出`));
+    put(ws, 12, 2, F(`SUMIF($B$${expS}:$B$${expE},"${mn}",$C$${expS}:$C$${expE})`, t.meExp));
+    put(ws, 13, 1, S('本月支出合计')); put(ws, 13, 2, F('B11+B12', t.expense));
+    put(ws, 15, 1, S('本月结余(还剩多少钱)')); put(ws, 15, 2, F('B4+B8-B13', balance(Y, m)));
+    put(ws, 17, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
+    ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 18, 1 + i, S(h)));
+    exps.forEach((e, i) => {
+      const r = 19 + i;
+      put(ws, r, 1, DT(e.date));
+      put(ws, r, 2, S(e.person === 'wife' ? wn : mn));
+      put(ws, r, 3, N(e.amount));
+      put(ws, r, 4, S(e.note || ''));
+    });
+    put(ws, secI, 1, S('四、其他收入明细(工资以外的收入)'));
+    ['日期', '来源(谁/什么收入)', '金额(元)', '备注'].forEach((h, i) => put(ws, hdrI, 1 + i, S(h)));
+    incs.forEach((e, i) => {
+      const r = incS + i;
+      put(ws, r, 1, DT(e.date));
+      put(ws, r, 2, S(e.source || ''));
+      put(ws, r, 3, N(e.amount));
+      put(ws, r, 4, S(e.note || ''));
+    });
+    const eN = incE - 1;   // !ref 只算到实际内容行, 避免被识别为全表
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: eN, c: 3 } });
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },
+      { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
+      { s: { r: 16, c: 0 }, e: { r: 16, c: 3 } },
+      { s: { r: secI - 1, c: 0 }, e: { r: secI - 1, c: 3 } }
+    ];
+    ws['!cols'] = [14, 16, 14, 42].map(wch => ({ wch }));
+    XLSX.utils.book_append_sheet(wb, ws, `${m}月`);
+  }
+
+  /* 使用说明 */
+  const help = {};
+  ['家庭记账本 使用说明', '',
+   `1. 本表由「家庭记账本」App于 ${today()} 导出。`,
+   '2. 上月结转、各项合计、结余都是公式,改明细会自动重算。',
+   '3. 新增支出写在对应月份的「支出明细」区;行不够时在明细区中间插入行。',
+   '4. 支出人一列必须和表头称呼一致,否则分人汇总会漏算。',
+   '5. 年度汇总页只看别改,公式改坏了结余就不对了。'
+  ].forEach((t, i) => put(help, i + 1, 1, S(t)));
+  help['!cols'] = [{ wch: 80 }];
+  XLSX.utils.book_append_sheet(wb, help, '使用说明');
+
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  shareOrDownload(
+    new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    `家庭记账本_${Y}年.xlsx`);
+}
+
+/* ================= 启动 ================= */
+if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+render();

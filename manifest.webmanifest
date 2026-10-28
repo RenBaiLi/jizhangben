@@ -1,0 +1,15 @@
+{
+  "name": "家庭记账本",
+  "short_name": "记账本",
+  "description": "两口子的家庭收支记账本:按月记录工资/支出/其他收入,自动算结余,可导出Excel。",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f2f7",
+  "theme_color": "#2f9e44",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

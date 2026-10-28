@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>家庭记账本</title>
+<meta name="theme-color" content="#2f9e44">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="记账本">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root{
+  --green:#2f9e44; --green-d:#2b8a3e; --bg:#f2f2f7; --text:#1c1c1e;
+  --sub:#8e8e93; --red:#ff3b30; --blue:#0a84ff; --pink:#ff5d8f;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg); color:var(--text);
+}
+button{font-family:inherit}
+
+/* 顶栏 */
+#topbar{
+  position:sticky; top:0; z-index:20;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) 8px 10px;
+  background:rgba(255,255,255,.86);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border-bottom:.5px solid #e3e3e8;
+}
+#topbar .t{font-size:18px;font-weight:600;flex:1;text-align:center}
+#topbar .nav{
+  border:none;background:none;font-size:26px;color:var(--green);
+  width:44px;height:36px;line-height:1;cursor:pointer;
+}
+
+/* 内容 */
+#view{max-width:560px;margin:0 auto;padding:14px 14px calc(110px + var(--safe-b))}
+.card{
+  background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);
+}
+.card-title{font-size:16px;font-weight:600;margin-bottom:6px}
+.card-title small{font-weight:400;color:var(--sub);font-size:12px;margin-left:6px}
+
+/* 结余大卡 */
+.hero{
+  background:linear-gradient(135deg,#37b24d,var(--green-d));
+  color:#fff;
+}
+.hero-label{font-size:13px;opacity:.9}
+.hero-bal{font-size:36px;font-weight:700;margin:6px 0 14px;font-variant-numeric:tabular-nums}
+.hero-bal.neg{color:#ffc9c9}
+.hero-stats{display:flex;border-top:1px solid rgba(255,255,255,.25);padding-top:10px}
+.hero-stats>div{flex:1;text-align:center}
+.hero-stats span{display:block;font-size:11px;opacity:.85}
+.hero-stats b{display:block;font-size:14px;margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* 列表行 */
+.row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 0;border-bottom:.5px solid #ececf0;font-size:15px;
+}
+.row:last-child{border-bottom:none}
+.row.tap:active{background:#f6f6f8}
+.row .val{color:var(--sub);font-variant-numeric:tabular-nums}
+.row .val i{font-style:normal;color:#c7c7cc;margin-left:2px}
+.row.total{font-weight:600}
+.row.total .val{color:var(--text)}
+.neg{color:var(--red)!important}
+
+/* 明细行 */
+.entry{display:grid;grid-template-columns:auto auto 1fr auto;gap:8px;justify-content:stretch}
+.entry .d{color:var(--sub);font-size:13px;white-space:nowrap}
+.entry .note{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.entry .amt{font-variant-numeric:tabular-nums}
+.chip{
+  font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap;
+}
+.chip.wife{background:#fff0f5;color:var(--pink)}
+.chip.me{background:#e7f1ff;color:var(--blue)}
+.chip.inc{background:#e9f9ee;color:var(--green)}
+.empty{color:var(--sub);font-size:13px;text-align:center;padding:14px 0}
+
+/* 年度页 */
+.yrow{display:grid;grid-template-columns:40px 1fr 1fr 1.15fr;gap:4px;justify-content:stretch}
+.yrow .d{font-weight:600}
+.yc{text-align:right;font-variant-numeric:tabular-nums;font-size:14px}
+.yc i{font-style:normal;color:#c7c7cc;font-size:10px;margin-right:2px}
+.yc.bal{font-weight:600}
+
+/* 按钮 */
+.btn{
+  display:block;width:100%;border:none;border-radius:12px;
+  padding:13px;font-size:16px;margin-top:10px;cursor:pointer;
+}
+.btn.primary{background:var(--green);color:#fff;font-weight:600}
+.btn.primary:active{background:var(--green-d)}
+.btn.ghost{background:#f2f2f7;color:var(--green);font-weight:500}
+.btn.danger{background:#fff2f1;color:var(--red)}
+.btn.big{font-size:17px;padding:15px}
+
+/* 悬浮 ＋ */
+#fab{
+  position:fixed;right:20px;bottom:calc(74px + var(--safe-b));z-index:25;
+  width:56px;height:56px;border-radius:50%;border:none;
+  background:var(--green);color:#fff;font-size:30px;line-height:1;
+  box-shadow:0 4px 14px rgba(47,158,68,.45);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+#fab:active{background:var(--green-d)}
+
+/* 底部 Tab */
+#tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;
+  display:flex;background:rgba(255,255,255,.92);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:.5px solid #e3e3e8;
+  padding-bottom:var(--safe-b);
+}
+#tabbar button{
+  flex:1;border:none;background:none;padding:7px 0 5px;
+  font-size:11px;color:var(--sub);cursor:pointer;
+}
+#tabbar button span{display:block;font-size:20px;margin-bottom:1px}
+#tabbar button.on{color:var(--green)}
+
+/* 弹层 */
+#modalRoot .mask{
+  position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.4);
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.sheet{
+  background:#fff;width:100%;max-width:560px;
+  border-radius:18px 18px 0 0;
+  padding:20px 18px calc(18px + var(--safe-b));
+  animation:up .22s ease-out;
+}
+@keyframes up{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+.sheet-title{font-size:17px;font-weight:600;text-align:center;margin-bottom:14px}
+.sheet input{
+  width:100%;border:1px solid #ddd;border-radius:10px;
+  padding:13px;font-size:16px;margin-bottom:10px;outline:none;
+}
+.sheet input:focus{border-color:var(--green)}
+.sheet-btns{display:flex;gap:10px}
+.sheet-btns .btn{flex:1;margin-top:4px}
+.seg{display:flex;gap:8px;margin-bottom:10px}
+.seg button{
+  flex:1;border:1.5px solid #ddd;background:#fff;border-radius:10px;
+  padding:11px;font-size:16px;color:var(--sub);cursor:pointer;
+}
+.seg button.on.wife{border-color:var(--pink);color:var(--pink);background:#fff0f5;font-weight:600}
+.seg button.on.me{border-color:var(--blue);color:var(--blue);background:#e7f1ff;font-weight:600}
+
+/* 设置页 */
+input.mini{
+  border:1px solid #ddd;border-radius:8px;padding:7px 10px;
+  font-size:15px;width:120px;text-align:right;outline:none;
+}
+input.mini:focus{border-color:var(--green)}
+label.btn{text-align:center}
+.about p{font-size:13px;color:var(--sub);margin:6px 0;line-height:1.6}
+.about .ver{text-align:center;color:#c7c7cc;font-size:12px;margin-top:10px}
+</style>
+</head>
+<body>
+<header id="topbar"></header>
+<main id="view"></main>
+<button id="fab" aria-label="记一笔">＋</button>
+<nav id="tabbar">
+  <button data-tab="month" class="on"><span>📒</span>本月</button>
+  <button data-tab="year"><span>📊</span>年度</button>
+  <button data-tab="me"><span>⚙️</span>我的</button>
+</nav>
+<div id="modalRoot"></div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+<script src="app.js"></script>
+</body>
+</html>
