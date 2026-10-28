@@ -411,23 +411,30 @@ function exportYear(Y) {
    `${wn}支出`, `${mn}支出`, '支出合计', '本月结余', '备注']
     .forEach((h, i) => put(sum, 5, 1 + i, S(h)));
   for (let m = 1; m <= 12; m++) {
-    const r = 5 + m, sh = `'${m}月'`;
+    const r = 5 + m, t = totals(Y, m);
     put(sum, r, 1, S(`${m}月`));
-    ['B4', 'B5', 'B6', 'B7', 'B8', 'B11', 'B12', 'B13', 'B15']
-      .forEach((ref, i) => put(sum, r, 2 + i, F(`${sh}!${ref}`)));
+    put(sum, r, 2, N(carryover(Y, m)));
+    put(sum, r, 3, N(t.wifeSalary));
+    put(sum, r, 4, N(t.meSalary));
+    put(sum, r, 5, N(t.otherIncome));
+    put(sum, r, 6, N(t.income));
+    put(sum, r, 7, N(t.wifeExp));
+    put(sum, r, 8, N(t.meExp));
+    put(sum, r, 9, N(t.expense));
+    put(sum, r, 10, N(balance(Y, m)));
   }
   put(sum, 18, 1, S('全年合计'));
   put(sum, 18, 2, S('—'));
   const yr = { in: 0, out: 0 };
   for (let m = 1; m <= 12; m++) { const tt = totals(Y, m); yr.in = r2(yr.in + tt.income); yr.out = r2(yr.out + tt.expense); }
-  put(sum, 18, 3, F('SUM(C6:C17)', yr.in));
-  put(sum, 18, 4, F('SUM(D6:D17)', yr.in));
-  put(sum, 18, 5, F('SUM(E6:E17)', yr.in));
-  put(sum, 18, 6, F('SUM(F6:F17)', yr.in));
-  put(sum, 18, 7, F('SUM(G6:G17)', yr.out));
-  put(sum, 18, 8, F('SUM(H6:H17)', yr.out));
-  put(sum, 18, 9, F('SUM(I6:I17)', yr.out));
-  put(sum, 18, 10, F('J17', balance(Y, 12)));
+  put(sum, 18, 3, N(yr.in));
+  put(sum, 18, 4, N(yr.in));
+  put(sum, 18, 5, N(yr.in));
+  put(sum, 18, 6, N(yr.in));
+  put(sum, 18, 7, N(yr.out));
+  put(sum, 18, 8, N(yr.out));
+  put(sum, 18, 9, N(yr.out));
+  put(sum, 18, 10, N(balance(Y, 12)));
   put(sum, 18, 11, S('← 结余列为年末结余'));
   sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: 10 } });
   sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, { s: { r: 2, c: 2 }, e: { r: 2, c: 10 } }];
@@ -446,18 +453,18 @@ function exportYear(Y) {
     put(ws, 1, 1, S(`${Y}年${m}月 家庭收支明细`));
     put(ws, 3, 1, S('一、收入情况'));
     const t = totals(Y, m);
-    put(ws, 4, 1, S('上月结余结转')); put(ws, 4, 2, F(m === 1 ? "='年度汇总'!$B$3" : `='${m - 1}月'!$B$15`, carryover(Y, m)));
+    put(ws, 4, 1, S('上月结余结转')); put(ws, 4, 2, N(carryover(Y, m)));
     put(ws, 5, 1, S(`${wn}工资`)); if (d.wifeSalary) put(ws, 5, 2, N(d.wifeSalary));
     put(ws, 6, 1, S(`${mn}工资`)); if (d.meSalary) put(ws, 6, 2, N(d.meSalary));
-    put(ws, 7, 1, S('其他收入')); put(ws, 7, 2, F(`SUM(C${incS}:C${incE})`, t.otherIncome));
-    put(ws, 8, 1, S('本月收入合计')); put(ws, 8, 2, F('B5+B6+B7', t.income));
+    put(ws, 7, 1, S('其他收入')); put(ws, 7, 2, N(t.otherIncome));
+    put(ws, 8, 1, S('本月收入合计')); put(ws, 8, 2, N(t.income));
     put(ws, 10, 1, S('二、支出情况'));
     put(ws, 11, 1, S(`${wn}支出`));
-    put(ws, 11, 2, F(`SUMIF($B$${expS}:$B$${expE},"${wn}",$C$${expS}:$C$${expE})`, t.wifeExp));
+    put(ws, 11, 2, N(t.wifeExp));
     put(ws, 12, 1, S(`${mn}支出`));
-    put(ws, 12, 2, F(`SUMIF($B$${expS}:$B$${expE},"${mn}",$C$${expS}:$C$${expE})`, t.meExp));
-    put(ws, 13, 1, S('本月支出合计')); put(ws, 13, 2, F('B11+B12', t.expense));
-    put(ws, 15, 1, S('本月结余(还剩多少钱)')); put(ws, 15, 2, F('B4+B8-B13', balance(Y, m)));
+    put(ws, 12, 2, N(t.meExp));
+    put(ws, 13, 1, S('本月支出合计')); put(ws, 13, 2, N(t.expense));
+    put(ws, 15, 1, S('本月结余(还剩多少钱)')); put(ws, 15, 2, N(balance(Y, m)));
     put(ws, 17, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
     ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 18, 1 + i, S(h)));
     exps.forEach((e, i) => {
