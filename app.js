@@ -203,14 +203,6 @@ function vMe() {
   const solo = isSolo();
   return `
   <div class="card">
-    <div class="card-title">记账模式</div>
-    <div class="seg">
-      <button type="button" data-set-mode="couple" class="${!solo ? 'on wife' : ''}">👫 两人</button>
-      <button type="button" data-set-mode="solo" class="${solo ? 'on me' : ''}">🧍 一人</button>
-    </div>
-    <p class="hint">一人模式下媳妇那一路不显示,数据仍保留,切回两人即可看到</p>
-  </div>
-  <div class="card">
     <div class="card-title">${solo ? '称呼' : '两口子称呼'}</div>
     ${solo ? '' : `<div class="row"><span>媳妇显示为</span><input class="mini" data-set="wifeName" value="${esc(DB.settings.wifeName)}" maxlength="6"></div>`}
     <div class="row"><span>我显示为</span><input class="mini" data-set="meName" value="${esc(DB.settings.meName)}" maxlength="6"></div>
@@ -218,6 +210,7 @@ function vMe() {
   <div class="card">
     <div class="card-title">数据</div>
     <div class="row tap" data-act="init"><span>初始资金</span><span class="val">${fmt(DB.settings.initialBalance)} <i>›</i></span></div>
+    <div class="row tap" data-act="mode"><span>记账模式</span><span class="val">${solo ? '🧍 一人' : '👫 两人'} <i>›</i></span></div>
     <button class="btn ghost" data-act="backup">备份数据(导出JSON)</button>
     <label class="btn ghost">恢复备份(导入JSON)<input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
     <button class="btn danger" data-act="wipe">清空全部数据</button>
@@ -258,6 +251,20 @@ function numModal(title, val, ctx) {
       <button class="btn primary" data-msave>保存</button>
     </div>`);
   setTimeout(() => { const i = document.getElementById('m-num'); if (i) i.focus(); }, 80);
+}
+
+function modeModal() {
+  const solo = isSolo();
+  openModal(`
+    <div class="sheet-title">记账模式</div>
+    <div class="seg">
+      <button type="button" data-set-mode="couple" class="${!solo ? 'on wife' : ''}">👫 两人</button>
+      <button type="button" data-set-mode="solo" class="${solo ? 'on me' : ''}">🧍 一人</button>
+    </div>
+    <p class="hint">一人模式下媳妇那一路不显示,数据仍保留,切回两人即可看到</p>
+    <div class="sheet-btns">
+      <button class="btn ghost" data-mclose>关闭</button>
+    </div>`);
 }
 
 function expModal(e) {
@@ -364,8 +371,6 @@ document.getElementById('tabbar').addEventListener('click', e => {
 fab.addEventListener('click', () => expModal(null));
 
 view.addEventListener('click', e => {
-  const sm = e.target.closest('[data-set-mode]');
-  if (sm) { DB.settings.mode = sm.dataset.setMode; save(); render(); return; }
   const el = e.target.closest('[data-act]'); if (!el) return;
   const act = el.dataset.act;
   if (act === 'wage') {
@@ -374,6 +379,7 @@ view.addEventListener('click', e => {
       { kind: 'wage', p: el.dataset.p });
   }
   else if (act === 'init') numModal('初始资金', DB.settings.initialBalance, { kind: 'init' });
+  else if (act === 'mode') modeModal();
   else if (act === 'addInc') incModal(null);
   else if (act === 'editExp') { const f = findEntry('expenses', el.dataset.id); if (f) expModal(f.e); }
   else if (act === 'editInc') { const f = findEntry('incomes', el.dataset.id); if (f) incModal(f.e); }
@@ -402,6 +408,8 @@ modalRoot.addEventListener('click', e => {
   const t = e.target;
   if (t.classList && t.classList.contains('mask')) { closeModal(); return; }
   if (t.closest('[data-mclose]')) { closeModal(); return; }
+  const sm = t.closest('[data-set-mode]');
+  if (sm) { DB.settings.mode = sm.dataset.setMode; save(); closeModal(); render(); return; }
   const mp = t.closest('[data-mp]');
   if (mp && modalCtx) {
     modalCtx.person = mp.dataset.mp;
