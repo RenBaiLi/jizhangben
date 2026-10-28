@@ -2,8 +2,9 @@
 'use strict';
 
 // --- 数据层(拷贝自 app.js,localStorage 换成内存) ---
-const fresh = () => ({ settings: { wifeName: '媳妇', meName: '我', initialBalance: 0 }, months: {} });
+const fresh = () => ({ settings: { wifeName: '媳妇', meName: '我', initialBalance: 0, mode: 'couple' }, months: {} });
 let DB = fresh();
+const isSolo = () => DB.settings.mode === 'solo';
 const r2 = n => Math.round((+n || 0) * 100) / 100;
 const key = (y, m) => `${y}-${String(m).padStart(2, '0')}`;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -100,41 +101,58 @@ function buildExport(Y) {
   const N = v => ({ t: 'n', v: r2(v), z: MONEY });
   const F = (f, v) => ({ t: 'n', f: f.replace(/^=/, ''), v: r2(v || 0), z: MONEY });
   const DT = ds => { const [a, b, c] = ds.split('-').map(Number); return { t: 'd', v: new Date(a, b - 1, c), z: DFMT }; };
+  const solo = isSolo();
 
   const sum = {};
   put(sum, 1, 1, S(`${Y}年 家庭收支年度汇总`));
   put(sum, 3, 1, S('年初初始结余:'));
   put(sum, 3, 2, N(carryover(Y, 1)));
-  ['月份', '上月结转', `${wn}工资`, `${mn}工资`, '其他收入', '收入合计',
-   `${wn}支出`, `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注'].forEach((h, i) => put(sum, 5, 1 + i, S(h)));
+  const headRow = solo
+    ? ['月份', '上月结转', `${mn}工资`, '其他收入', '收入合计',
+       `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注']
+    : ['月份', '上月结转', `${wn}工资`, `${mn}工资`, '其他收入', '收入合计',
+       `${wn}支出`, `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注'];
+  headRow.forEach((h, i) => put(sum, 5, 1 + i, S(h)));
   for (let m = 1; m <= 12; m++) {
     const r = 5 + m, t = totals(Y, m);
     put(sum, r, 1, S(`${m}月`));
     put(sum, r, 2, N(carryover(Y, m)));
-    put(sum, r, 3, N(t.wifeSalary));
-    put(sum, r, 4, N(t.meSalary));
-    put(sum, r, 5, N(t.otherIncome));
-    put(sum, r, 6, N(t.income));
-    put(sum, r, 7, N(t.wifeExp));
-    put(sum, r, 8, N(t.meExp));
-    put(sum, r, 9, N(t.otherExp));
-    put(sum, r, 10, N(t.expense));
-    put(sum, r, 11, N(balance(Y, m)));
+    if (solo) {
+      put(sum, r, 3, N(t.meSalary));
+      put(sum, r, 4, N(t.otherIncome));
+      put(sum, r, 5, N(t.income));
+      put(sum, r, 6, N(t.meExp));
+      put(sum, r, 7, N(t.otherExp));
+      put(sum, r, 8, N(t.expense));
+      put(sum, r, 9, N(balance(Y, m)));
+    } else {
+      put(sum, r, 3, N(t.wifeSalary));
+      put(sum, r, 4, N(t.meSalary));
+      put(sum, r, 5, N(t.otherIncome));
+      put(sum, r, 6, N(t.income));
+      put(sum, r, 7, N(t.wifeExp));
+      put(sum, r, 8, N(t.meExp));
+      put(sum, r, 9, N(t.otherExp));
+      put(sum, r, 10, N(t.expense));
+      put(sum, r, 11, N(balance(Y, m)));
+    }
   }
   put(sum, 18, 1, S('全年合计')); put(sum, 18, 2, S('—'));
   const yr = { in: 0, out: 0 };
   for (let m = 1; m <= 12; m++) { const tt = totals(Y, m); yr.in = r2(yr.in + tt.income); yr.out = r2(yr.out + tt.expense); }
-  put(sum, 18, 3, N(yr.in));
-  put(sum, 18, 4, N(yr.in));
-  put(sum, 18, 5, N(yr.in));
-  put(sum, 18, 6, N(yr.in));
-  put(sum, 18, 7, N(yr.out));
-  put(sum, 18, 8, N(yr.out));
-  put(sum, 18, 9, N(yr.out));
-  put(sum, 18, 10, N(yr.out));
-  put(sum, 18, 11, N(balance(Y, 12)));
-  sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: 11 } });
-  sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }, { s: { r: 2, c: 2 }, e: { r: 2, c: 11 } }];
+  const bal12 = balance(Y, 12);
+  if (solo) {
+    put(sum, 18, 3, N(yr.in)); put(sum, 18, 4, N(yr.in)); put(sum, 18, 5, N(yr.in));
+    put(sum, 18, 6, N(yr.out)); put(sum, 18, 7, N(yr.out)); put(sum, 18, 8, N(yr.out));
+    put(sum, 18, 9, N(bal12));
+  } else {
+    put(sum, 18, 3, N(yr.in)); put(sum, 18, 4, N(yr.in)); put(sum, 18, 5, N(yr.in)); put(sum, 18, 6, N(yr.in));
+    put(sum, 18, 7, N(yr.out)); put(sum, 18, 8, N(yr.out)); put(sum, 18, 9, N(yr.out)); put(sum, 18, 10, N(yr.out));
+    put(sum, 18, 11, N(bal12));
+  }
+  const lastC = solo ? 9 : 11;
+  sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: lastC } });
+  sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: lastC } }, { s: { r: 2, c: 2 }, e: { r: 2, c: lastC } }];
   XLSX.utils.book_append_sheet(wb, sum, '年度汇总');
 
   for (let m = 1; m <= 12; m++) {
@@ -142,29 +160,40 @@ function buildExport(Y) {
     const exps = [...dd.expenses].sort((a, b) => a.date.localeCompare(b.date));
     const incs = [...dd.incomes].sort((a, b) => a.date.localeCompare(b.date));
     const expRows = Math.max(50, exps.length), incRows = Math.max(15, incs.length);
-    const expS = 20, expE = 19 + expRows;
+    const off = solo ? 2 : 0;
+    const expS = 20 - off, expE = 19 + expRows - off;
     const secI = expE + 2, hdrI = secI + 1, incS = hdrI + 1, incE = incS + incRows - 1;
     put(ws, 1, 1, S(`${Y}年${m}月 家庭收支明细`));
     put(ws, 3, 1, S('一、收入情况'));
     const t = totals(Y, m);
     put(ws, 4, 1, S('上月结余结转')); put(ws, 4, 2, N(carryover(Y, m)));
-    put(ws, 5, 1, S(`${wn}工资`)); if (dd.wifeSalary) put(ws, 5, 2, N(dd.wifeSalary));
-    put(ws, 6, 1, S(`${mn}工资`)); if (dd.meSalary) put(ws, 6, 2, N(dd.meSalary));
-    put(ws, 7, 1, S('其他收入')); put(ws, 7, 2, N(t.otherIncome));
-    put(ws, 8, 1, S('本月收入合计')); put(ws, 8, 2, N(t.income));
-    put(ws, 10, 1, S('二、支出情况'));
-    put(ws, 11, 1, S(`${wn}支出`));
-    put(ws, 11, 2, N(t.wifeExp));
-    put(ws, 12, 1, S(`${mn}支出`));
-    put(ws, 12, 2, N(t.meExp));
-    put(ws, 13, 1, S('其他支出'));
-    put(ws, 13, 2, N(t.otherExp));
-    put(ws, 14, 1, S('本月支出合计')); put(ws, 14, 2, N(t.expense));
-    put(ws, 16, 1, S('本月结余(还剩多少钱)')); put(ws, 16, 2, N(balance(Y, m)));
-    put(ws, 18, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
-    ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 19, 1 + i, S(h)));
+    if (solo) {
+      put(ws, 5, 1, S(`${mn}工资`)); if (dd.meSalary) put(ws, 5, 2, N(dd.meSalary));
+      put(ws, 6, 1, S('其他收入')); put(ws, 6, 2, N(t.otherIncome));
+      put(ws, 7, 1, S('本月收入合计')); put(ws, 7, 2, N(t.income));
+      put(ws, 9, 1, S('二、支出情况'));
+      put(ws, 10, 1, S(`${mn}支出`)); put(ws, 10, 2, N(t.meExp));
+      put(ws, 11, 1, S('其他支出')); put(ws, 11, 2, N(t.otherExp));
+      put(ws, 12, 1, S('本月支出合计')); put(ws, 12, 2, N(t.expense));
+      put(ws, 14, 1, S('本月结余(还剩多少钱)')); put(ws, 14, 2, N(balance(Y, m)));
+      put(ws, 16, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
+      ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 17, 1 + i, S(h)));
+    } else {
+      put(ws, 5, 1, S(`${wn}工资`)); if (dd.wifeSalary) put(ws, 5, 2, N(dd.wifeSalary));
+      put(ws, 6, 1, S(`${mn}工资`)); if (dd.meSalary) put(ws, 6, 2, N(dd.meSalary));
+      put(ws, 7, 1, S('其他收入')); put(ws, 7, 2, N(t.otherIncome));
+      put(ws, 8, 1, S('本月收入合计')); put(ws, 8, 2, N(t.income));
+      put(ws, 10, 1, S('二、支出情况'));
+      put(ws, 11, 1, S(`${wn}支出`)); put(ws, 11, 2, N(t.wifeExp));
+      put(ws, 12, 1, S(`${mn}支出`)); put(ws, 12, 2, N(t.meExp));
+      put(ws, 13, 1, S('其他支出')); put(ws, 13, 2, N(t.otherExp));
+      put(ws, 14, 1, S('本月支出合计')); put(ws, 14, 2, N(t.expense));
+      put(ws, 16, 1, S('本月结余(还剩多少钱)')); put(ws, 16, 2, N(balance(Y, m)));
+      put(ws, 18, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
+      ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 19, 1 + i, S(h)));
+    }
     exps.forEach((e, i) => {
-      const r = 20 + i;
+      const r = expS + i;
       put(ws, r, 1, DT(e.date));
       put(ws, r, 2, S(e.person === 'wife' ? wn : e.person === 'me' ? mn : '其他'));
       put(ws, r, 3, N(e.amount));
@@ -184,8 +213,8 @@ function buildExport(Y) {
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } },
       { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },
-      { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
-      { s: { r: 17, c: 0 }, e: { r: 17, c: 3 } },
+      { s: { r: 9 - off, c: 0 }, e: { r: 9 - off, c: 3 } },
+      { s: { r: 17 - off, c: 0 }, e: { r: 17 - off, c: 3 } },
       { s: { r: secI - 1, c: 0 }, e: { r: secI - 1, c: 3 } }
     ];
     ws['!cols'] = [14, 16, 14, 42].map(wch => ({ wch }));
@@ -228,6 +257,50 @@ else { fail++; console.log('FAIL 汇总表', JSON.stringify(sm['B3']), JSON.stri
 
 XLSX.writeFile(wb, __dirname + '/_test_export.xlsx');
 console.log('已写出 _test_export.xlsx 供人工核对');
+
+// --- 单人模式 ---
+DB.settings.mode = 'solo';
+eq(totals(2026, 1).income, 20500, 'solo: 1月收入不变(媳妇工资仍计入)');
+eq(totals(2026, 1).expense, 7600, 'solo: 1月支出不变(媳妇支出仍计入)');
+eq(balance(2026, 1), 22900, 'solo: 结余不变');
+
+const wbS = buildExport(2026);
+const smS = wbS.Sheets['年度汇总'];
+const sc = {  // solo 汇总表头应只有 10 列(A..J), 没有 K/L
+  '表头C=我工资': smS['C5'].v === '我工资',
+  '表头J=备注': smS['J5'].v === '备注',
+  '没有K列表头': !smS['K5'],
+  '1月C=我工资数值': smS['C6'].v === 12000,
+  '1月E=收入合计': smS['E6'].v === 20500,
+  '1月I=本月结余': smS['I6'].v === 22900,
+  '合计行I=年末结余': smS['I18'].v === balance(2026, 12),
+  'ref只到J列': smS['!ref'].endsWith('J18')
+};
+for (const [name, ok] of Object.entries(sc)) {
+  if (ok) pass++; else { fail++; console.log('FAIL solo汇总', name); }
+}
+const janS = wbS.Sheets['1月'];
+const scj = {
+  'B4=结转': janS['B4'] && janS['B4'].v === 10000,
+  'B5=我工资': janS['B5'] && janS['B5'].v === 12000,
+  'A6=其他收入': janS['A6'] && janS['A6'].v === '其他收入',
+  'B7=收入合计': janS['B7'] && janS['B7'].v === 20500,
+  'A9=二支出节': janS['A9'] && String(janS['A9'].v).indexOf('支出情况') >= 0,
+  'B10=我支出': janS['B10'] && janS['B10'].v === 4000,
+  'B11=其他支出': janS['B11'] && janS['B11'].v === 600,
+  'B12=支出合计': janS['B12'] && janS['B12'].v === 7600,
+  'B14=结余': janS['B14'] && janS['B14'].v === 22900,
+  'A16=三明细节': janS['A16'] && String(janS['A16'].v).indexOf('支出明细') >= 0,
+  'A17=日期表头': janS['A17'] && janS['A17'].v === '日期',
+  'B18=首笔支出人': janS['B18'] && janS['B18'].v === '媳妇',
+  'C18=首笔金额': janS['C18'] && janS['C18'].v === 3000,
+  'B20=其他': janS['B20'] && janS['B20'].v === '其他'
+};
+for (const [name, ok] of Object.entries(scj)) {
+  if (ok) pass++; else { fail++; console.log('FAIL solo月度', name, JSON.stringify(janS[name.split('=')[0]])); }
+}
+DB.settings.mode = 'couple';
+eq(balance(2026, 1), 22900, '切回两人: 结余仍不变');
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
 process.exit(fail ? 1 : 0);
