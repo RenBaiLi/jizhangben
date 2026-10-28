@@ -69,6 +69,11 @@ function today() {
   const n = new Date();
   return `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`;
 }
+/* 导出文件名用的时间戳: 20261028_153045 */
+function tsName() {
+  const n = new Date();
+  return `${n.getFullYear()}${pad2(n.getMonth() + 1)}${pad2(n.getDate())}_${pad2(n.getHours())}${pad2(n.getMinutes())}${pad2(n.getSeconds())}`;
+}
 /* 记一笔的默认日期:看的是本月就用今天,看其他月就用那个月的1号 */
 function defDate() {
   const n = new Date();
@@ -436,7 +441,7 @@ async function shareOrDownload(blob, name) {
 }
 function backup() {
   const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
-  shareOrDownload(blob, `记账本备份_${today().replaceAll('-', '')}.json`);
+  shareOrDownload(blob, `记账本备份_${tsName()}.json`);
 }
 function restore(file) {
   file.text().then(txt => {
@@ -607,7 +612,7 @@ function exportYear(Y) {
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   shareOrDownload(
     new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-    `家庭记账本_${Y}年.xlsx`);
+    `家庭记账本_${Y}年_${tsName()}.xlsx`);
 }
 
 /* ================= 启动 ================= */
