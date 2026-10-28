@@ -255,6 +255,19 @@ function balTrend(Y) {
   </svg>`;
 }
 
+/* 年度大额支出 TOP10: 全年支出按金额倒序前 10 笔 */
+function topExp(Y) {
+  const all = [];
+  for (let m = 1; m <= 12; m++) mData(Y, m).expenses.forEach(e => all.push(e));
+  if (!all.length) return '<div class="empty">今年还没有支出记录</div>';
+  all.sort((a, b) => b.amount - a.amount);
+  return all.slice(0, 10).map(e => `<div class="row entry">
+    <span class="d">${mmdd(e.date)}</span>
+    <span class="chip ${e.person}">${esc(pName(e.person))}</span>
+    <span class="note">${esc(e.note) || '—'}</span>
+    <span class="amt">${fmt(e.amount)}</span></div>`).join('');
+}
+
 function vYear() {
   const Y = curY;
   let rows = '', sumIn = 0, sumOut = 0;
@@ -290,6 +303,10 @@ function vYear() {
   <div class="card">
     <div class="card-title">累计结余走势<small>每月末钱包余额</small></div>
     ${balTrend(Y) || '<div class="empty">今年还没有记录</div>'}
+  </div>
+  <div class="card">
+    <div class="card-title">大额支出 TOP10<small>全年最贵的 10 笔</small></div>
+    ${topExp(Y)}
   </div>
   <div class="card">
     <div class="card-title">${Y}年 每月一览<small>点月份看明细</small></div>
