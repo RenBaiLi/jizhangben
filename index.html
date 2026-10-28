@@ -86,15 +86,19 @@ button{font-family:inherit}
 }
 .chip.wife{background:#fff0f5;color:var(--pink)}
 .chip.me{background:#e7f1ff;color:var(--blue)}
+.chip.other{background:#f3f0ff;color:#845ef7}
 .chip.inc{background:#e9f9ee;color:var(--green)}
 .empty{color:var(--sub);font-size:13px;text-align:center;padding:14px 0}
 
 /* 年度页 */
-.yrow{display:grid;grid-template-columns:40px 1fr 1fr 1.15fr;gap:4px;justify-content:stretch}
+.yrow{display:grid;grid-template-columns:32px 1fr 1fr 1fr 1.1fr;gap:3px;justify-content:stretch}
 .yrow .d{font-weight:600}
-.yc{text-align:right;font-variant-numeric:tabular-nums;font-size:14px}
-.yc i{font-style:normal;color:#c7c7cc;font-size:10px;margin-right:2px}
+.yc{text-align:right;font-variant-numeric:tabular-nums;font-size:12px}
+.yc i{font-style:normal;color:#c7c7cc;font-size:10px;margin-right:1px}
 .yc.bal{font-weight:600}
+.yc.cum{color:var(--sub);font-size:11px}
+.yhead{font-size:11px;color:var(--sub)}
+.yrow.yhead{padding-bottom:4px}
 
 /* 按钮 */
 .btn{
@@ -159,6 +163,7 @@ button{font-family:inherit}
 }
 .seg button.on.wife{border-color:var(--pink);color:var(--pink);background:#fff0f5;font-weight:600}
 .seg button.on.me{border-color:var(--blue);color:var(--blue);background:#e7f1ff;font-weight:600}
+.seg button.on.other{border-color:#845ef7;color:#845ef7;background:#f3f0ff;font-weight:600}
 
 /* 设置页 */
 input.mini{

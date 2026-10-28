@@ -22,11 +22,12 @@ function totals(y, m) {
   const d = mData(y, m);
   const wExp = d.expenses.filter(e => e.person === 'wife').reduce((s, e) => s + e.amount, 0);
   const mExp = d.expenses.filter(e => e.person === 'me').reduce((s, e) => s + e.amount, 0);
+  const oExp = d.expenses.filter(e => e.person === 'other').reduce((s, e) => s + e.amount, 0);
   const oi = d.incomes.reduce((s, e) => s + e.amount, 0);
   return {
     wifeSalary: r2(d.wifeSalary), meSalary: r2(d.meSalary), otherIncome: r2(oi),
     income: r2(d.wifeSalary + d.meSalary + oi),
-    wifeExp: r2(wExp), meExp: r2(mExp), expense: r2(wExp + mExp)
+    wifeExp: r2(wExp), meExp: r2(mExp), otherExp: r2(oExp), expense: r2(wExp + mExp + oExp)
   };
 }
 /* 上月结转 = 初始资金 + 之前所有月份的(收入-支出) */
@@ -41,7 +42,7 @@ function carryover(y, m) {
   return bal;
 }
 const balance = (y, m) => { const t = totals(y, m); return r2(carryover(y, m) + t.income - t.expense); };
-const pName = p => p === 'wife' ? DB.settings.wifeName : DB.settings.meName;
+const pName = p => p === 'wife' ? DB.settings.wifeName : p === 'me' ? DB.settings.meName : '其他';
 
 function findEntry(kind, id) {
   for (const k of Object.keys(DB.months)) {
@@ -136,7 +137,7 @@ function vMonth() {
   </div>
 
   <div class="card">
-    <div class="card-title">支出<small>${esc(pName('wife'))} ${fmt(t.wifeExp)} · ${esc(pName('me'))} ${fmt(t.meExp)}</small></div>
+    <div class="card-title">支出<small>${esc(pName('wife'))} ${fmt(t.wifeExp)} · ${esc(pName('me'))} ${fmt(t.meExp)} · 其他 ${fmt(t.otherExp)}</small></div>
     ${exps.length ? exps.map(expRow).join('') : '<div class="empty">还没有支出记录,点右下角 ＋ 记一笔</div>'}
     <div class="row total"><span>支出合计</span><span class="val">${fmt(t.expense)}</span></div>
   </div>`;
@@ -146,14 +147,22 @@ function vMonth() {
 function vYear() {
   const Y = curY;
   let rows = '', sumIn = 0, sumOut = 0;
+  rows += `<div class="row yrow yhead">
+    <span class="d">月份</span>
+    <span class="yc">收入</span>
+    <span class="yc">支出</span>
+    <span class="yc">当月结余</span>
+    <span class="yc">累计结余</span></div>`;
   for (let m = 1; m <= 12; m++) {
     const t = totals(Y, m), b = balance(Y, m);
+    const mSave = r2(t.income - t.expense);
     sumIn = r2(sumIn + t.income); sumOut = r2(sumOut + t.expense);
     rows += `<div class="row yrow tap" data-act="gotoM" data-m="${m}">
       <span class="d">${m}月</span>
-      <span class="yc"><i>收</i>${fmt(t.income)}</span>
-      <span class="yc"><i>支</i>${fmt(t.expense)}</span>
-      <span class="yc bal ${b < 0 ? 'neg' : ''}">${fmt(b)}</span></div>`;
+      <span class="yc">${fmt(t.income)}</span>
+      <span class="yc">${fmt(t.expense)}</span>
+      <span class="yc bal ${mSave < 0 ? 'neg' : ''}">${fmt(mSave)}</span>
+      <span class="yc cum ${b < 0 ? 'neg' : ''}">${fmt(b)}</span></div>`;
   }
   const yearEnd = balance(Y, 12);
   return `
@@ -224,6 +233,7 @@ function expModal(e) {
     <div class="seg">
       <button type="button" data-mp="wife" class="${modalCtx.person === 'wife' ? 'on wife' : ''}">${esc(pName('wife'))}</button>
       <button type="button" data-mp="me" class="${modalCtx.person === 'me' ? 'on me' : ''}">${esc(pName('me'))}</button>
+      <button type="button" data-mp="other" class="${modalCtx.person === 'other' ? 'on other' : ''}">其他</button>
     </div>
     <input id="m-amount" type="text" inputmode="decimal" placeholder="金额(元)" value="${e ? e.amount : ''}">
     <input id="m-date" type="date" value="${e ? e.date : today()}">
@@ -354,7 +364,7 @@ modalRoot.addEventListener('click', e => {
   const mp = t.closest('[data-mp]');
   if (mp && modalCtx) {
     modalCtx.person = mp.dataset.mp;
-    mp.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('on', 'wife', 'me'));
+    mp.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('on', 'wife', 'me', 'other'));
     mp.classList.add('on', modalCtx.person);
     return;
   }
@@ -408,7 +418,7 @@ function exportYear(Y) {
   put(sum, 3, 2, N(carryover(Y, 1)));
   put(sum, 3, 3, S('← 自动: 本年1月之前的累计结余'));
   ['月份', '上月结转', `${wn}工资`, `${mn}工资`, '其他收入', '收入合计',
-   `${wn}支出`, `${mn}支出`, '支出合计', '本月结余', '备注']
+   `${wn}支出`, `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注']
     .forEach((h, i) => put(sum, 5, 1 + i, S(h)));
   for (let m = 1; m <= 12; m++) {
     const r = 5 + m, t = totals(Y, m);
@@ -420,8 +430,9 @@ function exportYear(Y) {
     put(sum, r, 6, N(t.income));
     put(sum, r, 7, N(t.wifeExp));
     put(sum, r, 8, N(t.meExp));
-    put(sum, r, 9, N(t.expense));
-    put(sum, r, 10, N(balance(Y, m)));
+    put(sum, r, 9, N(t.otherExp));
+    put(sum, r, 10, N(t.expense));
+    put(sum, r, 11, N(balance(Y, m)));
   }
   put(sum, 18, 1, S('全年合计'));
   put(sum, 18, 2, S('—'));
@@ -434,11 +445,12 @@ function exportYear(Y) {
   put(sum, 18, 7, N(yr.out));
   put(sum, 18, 8, N(yr.out));
   put(sum, 18, 9, N(yr.out));
-  put(sum, 18, 10, N(balance(Y, 12)));
-  put(sum, 18, 11, S('← 结余列为年末结余'));
-  sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: 10 } });
-  sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, { s: { r: 2, c: 2 }, e: { r: 2, c: 10 } }];
-  sum['!cols'] = [10, 13, 12, 12, 12, 13, 12, 12, 13, 14, 24].map(wch => ({ wch }));
+  put(sum, 18, 10, N(yr.out));
+  put(sum, 18, 11, N(balance(Y, 12)));
+  put(sum, 18, 12, S('← 结余列为年末结余'));
+  sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: 11 } });
+  sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }, { s: { r: 2, c: 2 }, e: { r: 2, c: 11 } }];
+  sum['!cols'] = [10, 13, 12, 12, 12, 13, 12, 12, 12, 13, 14, 24].map(wch => ({ wch }));
   XLSX.utils.book_append_sheet(wb, sum, '年度汇总');
 
   /* 12个月 */
@@ -447,7 +459,7 @@ function exportYear(Y) {
     const exps = [...d.expenses].sort((a, b) => a.date.localeCompare(b.date));
     const incs = [...d.incomes].sort((a, b) => a.date.localeCompare(b.date));
     const expRows = Math.max(50, exps.length), incRows = Math.max(15, incs.length);
-    const expS = 19, expE = 18 + expRows;
+    const expS = 20, expE = 19 + expRows;
     const secI = expE + 2, hdrI = secI + 1, incS = hdrI + 1, incE = incS + incRows - 1;
 
     put(ws, 1, 1, S(`${Y}年${m}月 家庭收支明细`));
@@ -463,14 +475,16 @@ function exportYear(Y) {
     put(ws, 11, 2, N(t.wifeExp));
     put(ws, 12, 1, S(`${mn}支出`));
     put(ws, 12, 2, N(t.meExp));
-    put(ws, 13, 1, S('本月支出合计')); put(ws, 13, 2, N(t.expense));
-    put(ws, 15, 1, S('本月结余(还剩多少钱)')); put(ws, 15, 2, N(balance(Y, m)));
-    put(ws, 17, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
-    ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 18, 1 + i, S(h)));
+    put(ws, 13, 1, S('其他支出'));
+    put(ws, 13, 2, N(t.otherExp));
+    put(ws, 14, 1, S('本月支出合计')); put(ws, 14, 2, N(t.expense));
+    put(ws, 16, 1, S('本月结余(还剩多少钱)')); put(ws, 16, 2, N(balance(Y, m)));
+    put(ws, 18, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
+    ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 19, 1 + i, S(h)));
     exps.forEach((e, i) => {
-      const r = 19 + i;
+      const r = 20 + i;
       put(ws, r, 1, DT(e.date));
-      put(ws, r, 2, S(e.person === 'wife' ? wn : mn));
+      put(ws, r, 2, S(pName(e.person)));
       put(ws, r, 3, N(e.amount));
       put(ws, r, 4, S(e.note || ''));
     });
@@ -489,7 +503,7 @@ function exportYear(Y) {
       { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } },
       { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },
       { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
-      { s: { r: 16, c: 0 }, e: { r: 16, c: 3 } },
+      { s: { r: 17, c: 0 }, e: { r: 17, c: 3 } },
       { s: { r: secI - 1, c: 0 }, e: { r: secI - 1, c: 3 } }
     ];
     ws['!cols'] = [14, 16, 14, 42].map(wch => ({ wch }));

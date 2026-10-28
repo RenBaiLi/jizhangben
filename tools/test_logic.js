@@ -18,11 +18,12 @@ function totals(y, m) {
   const d = mData(y, m);
   const wExp = d.expenses.filter(e => e.person === 'wife').reduce((s, e) => s + e.amount, 0);
   const mExp = d.expenses.filter(e => e.person === 'me').reduce((s, e) => s + e.amount, 0);
+  const oExp = d.expenses.filter(e => e.person === 'other').reduce((s, e) => s + e.amount, 0);
   const oi = d.incomes.reduce((s, e) => s + e.amount, 0);
   return {
     wifeSalary: r2(d.wifeSalary), meSalary: r2(d.meSalary), otherIncome: r2(oi),
     income: r2(d.wifeSalary + d.meSalary + oi),
-    wifeExp: r2(wExp), meExp: r2(mExp), expense: r2(wExp + mExp)
+    wifeExp: r2(wExp), meExp: r2(mExp), otherExp: r2(oExp), expense: r2(wExp + mExp + oExp)
   };
 }
 function carryover(y, m) {
@@ -51,34 +52,42 @@ d.wifeSalary = 8000; d.meSalary = 12000;
 d.incomes.push({ id: uid(), date: '2026-01-20', source: '红包', amount: 500, note: '' });
 d.expenses.push({ id: uid(), date: '2026-01-10', person: 'wife', amount: 3000, note: '买菜' });
 d.expenses.push({ id: uid(), date: '2026-01-15', person: 'me', amount: 4000, note: '房贷' });
+d.expenses.push({ id: uid(), date: '2026-01-18', person: 'other', amount: 600, note: '随礼' });
 
 eq(carryover(2026, 1), 10000, '1月结转=初始');
 let t1 = totals(2026, 1);
 eq(t1.income, 20500, '1月收入合计');
 eq(t1.wifeExp, 3000, '媳妇支出');
 eq(t1.meExp, 4000, '我的支出');
-eq(t1.expense, 7000, '1月支出合计');
-eq(balance(2026, 1), 10000 + 20500 - 7000, '1月结余=23500');
+eq(t1.otherExp, 600, '1月其他支出');
+eq(t1.expense, 7600, '1月支出合计');
+eq(balance(2026, 1), 10000 + 20500 - 7600, '1月结余=22900');
 
 // 2月只发工资
 d = mData(2026, 2, true);
 d.wifeSalary = 8000; d.meSalary = 12000;
-eq(carryover(2026, 2), 23500, '2月结转=1月结余');
-eq(balance(2026, 2), 23500 + 20000, '2月结余=43500');
+eq(carryover(2026, 2), 22900, '2月结转=1月结余');
+eq(balance(2026, 2), 22900 + 20000, '2月结余=42900');
 
 // 跨年: 2027年1月结转=2026年12月结余(12月空账)
-eq(carryover(2027, 1), 43500, '跨年结转');
+eq(carryover(2027, 1), 42900, '跨年结转');
 
 // 支出记录在别的年份不影响
 d = mData(2026, 6, true);
 d.expenses.push({ id: uid(), date: '2026-06-01', person: 'wife', amount: 1000, note: '618' });
-eq(balance(2026, 6), 43500 - 1000, '6月结余扣掉618');
-eq(balance(2026, 5), 43500, '5月不受6月影响');
+eq(balance(2026, 6), 42900 - 1000, '6月结余扣掉618');
+eq(balance(2026, 5), 42900, '5月不受6月影响');
 
 // 精确到分
 d.expenses.push({ id: uid(), date: '2026-06-02', person: 'me', amount: 33.33, note: '午饭' });
 eq(totals(2026, 6).meExp, 33.33, '小数金额');
-eq(balance(2026, 6), 42500 - 33.33, '小数结余');
+eq(balance(2026, 6), 41900 - 33.33, '小数结余');
+
+// 其他支出
+d.expenses.push({ id: uid(), date: '2026-06-03', person: 'other', amount: 200, note: '随礼' });
+eq(totals(2026, 6).otherExp, 200, '其他支出单列');
+eq(totals(2026, 6).expense, 1000 + 33.33 + 200, '其他支出计入合计');
+eq(balance(2026, 6), 41900 - 33.33 - 200, '其他支出影响结余');
 
 // --- 导出结构测试(用真实 xlsx 库) ---
 const XLSX = require('xlsx');
@@ -97,7 +106,7 @@ function buildExport(Y) {
   put(sum, 3, 1, S('年初初始结余:'));
   put(sum, 3, 2, N(carryover(Y, 1)));
   ['月份', '上月结转', `${wn}工资`, `${mn}工资`, '其他收入', '收入合计',
-   `${wn}支出`, `${mn}支出`, '支出合计', '本月结余', '备注'].forEach((h, i) => put(sum, 5, 1 + i, S(h)));
+   `${wn}支出`, `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注'].forEach((h, i) => put(sum, 5, 1 + i, S(h)));
   for (let m = 1; m <= 12; m++) {
     const r = 5 + m, t = totals(Y, m);
     put(sum, r, 1, S(`${m}月`));
@@ -108,8 +117,9 @@ function buildExport(Y) {
     put(sum, r, 6, N(t.income));
     put(sum, r, 7, N(t.wifeExp));
     put(sum, r, 8, N(t.meExp));
-    put(sum, r, 9, N(t.expense));
-    put(sum, r, 10, N(balance(Y, m)));
+    put(sum, r, 9, N(t.otherExp));
+    put(sum, r, 10, N(t.expense));
+    put(sum, r, 11, N(balance(Y, m)));
   }
   put(sum, 18, 1, S('全年合计')); put(sum, 18, 2, S('—'));
   const yr = { in: 0, out: 0 };
@@ -121,9 +131,10 @@ function buildExport(Y) {
   put(sum, 18, 7, N(yr.out));
   put(sum, 18, 8, N(yr.out));
   put(sum, 18, 9, N(yr.out));
-  put(sum, 18, 10, N(balance(Y, 12)));
-  sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: 10 } });
-  sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, { s: { r: 2, c: 2 }, e: { r: 2, c: 10 } }];
+  put(sum, 18, 10, N(yr.out));
+  put(sum, 18, 11, N(balance(Y, 12)));
+  sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: 11 } });
+  sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }, { s: { r: 2, c: 2 }, e: { r: 2, c: 11 } }];
   XLSX.utils.book_append_sheet(wb, sum, '年度汇总');
 
   for (let m = 1; m <= 12; m++) {
@@ -131,7 +142,7 @@ function buildExport(Y) {
     const exps = [...dd.expenses].sort((a, b) => a.date.localeCompare(b.date));
     const incs = [...dd.incomes].sort((a, b) => a.date.localeCompare(b.date));
     const expRows = Math.max(50, exps.length), incRows = Math.max(15, incs.length);
-    const expS = 19, expE = 18 + expRows;
+    const expS = 20, expE = 19 + expRows;
     const secI = expE + 2, hdrI = secI + 1, incS = hdrI + 1, incE = incS + incRows - 1;
     put(ws, 1, 1, S(`${Y}年${m}月 家庭收支明细`));
     put(ws, 3, 1, S('一、收入情况'));
@@ -146,14 +157,16 @@ function buildExport(Y) {
     put(ws, 11, 2, N(t.wifeExp));
     put(ws, 12, 1, S(`${mn}支出`));
     put(ws, 12, 2, N(t.meExp));
-    put(ws, 13, 1, S('本月支出合计')); put(ws, 13, 2, N(t.expense));
-    put(ws, 15, 1, S('本月结余(还剩多少钱)')); put(ws, 15, 2, N(balance(Y, m)));
-    put(ws, 17, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
-    ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 18, 1 + i, S(h)));
+    put(ws, 13, 1, S('其他支出'));
+    put(ws, 13, 2, N(t.otherExp));
+    put(ws, 14, 1, S('本月支出合计')); put(ws, 14, 2, N(t.expense));
+    put(ws, 16, 1, S('本月结余(还剩多少钱)')); put(ws, 16, 2, N(balance(Y, m)));
+    put(ws, 18, 1, S('三、支出明细(每笔支出一行,备注写花在哪了)'));
+    ['日期', '支出人', '金额(元)', '备注(花在哪了)'].forEach((h, i) => put(ws, 19, 1 + i, S(h)));
     exps.forEach((e, i) => {
-      const r = 19 + i;
+      const r = 20 + i;
       put(ws, r, 1, DT(e.date));
-      put(ws, r, 2, S(e.person === 'wife' ? wn : mn));
+      put(ws, r, 2, S(e.person === 'wife' ? wn : e.person === 'me' ? mn : '其他'));
       put(ws, r, 3, N(e.amount));
       put(ws, r, 4, S(e.note || ''));
     });
@@ -172,7 +185,7 @@ function buildExport(Y) {
       { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } },
       { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },
       { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
-      { s: { r: 16, c: 0 }, e: { r: 16, c: 3 } },
+      { s: { r: 17, c: 0 }, e: { r: 17, c: 3 } },
       { s: { r: secI - 1, c: 0 }, e: { r: secI - 1, c: 3 } }
     ];
     ws['!cols'] = [14, 16, 14, 42].map(wch => ({ wch }));
@@ -195,19 +208,23 @@ const checks = {
   'B8(收入合计数值)': jan['B8'] && jan['B8'].v === 20500,
   'B11(媳妇支出数值)': jan['B11'] && jan['B11'].v === 3000,
   'B12(我的支出数值)': jan['B12'] && jan['B12'].v === 4000,
-  'B15(结余数值)': jan['B15'] && jan['B15'].v === 23500,
-  '明细B19=媳妇': jan['B19'].v === '媳妇',
-  '明细C19=3000': jan['C19'].v === 3000,
-  '明细A19是日期': jan['A19'].t === 'd'
+  'B13(其他支出数值)': jan['B13'] && jan['B13'].v === 600,
+  'B14(支出合计数值)': jan['B14'] && jan['B14'].v === 7600,
+  'B16(结余数值)': jan['B16'] && jan['B16'].v === 22900,
+  '明细B20=媳妇': jan['B20'].v === '媳妇',
+  '明细C20=3000': jan['C20'].v === 3000,
+  '明细A20是日期': jan['A20'].t === 'd',
+  '明细B22=其他': jan['B22'].v === '其他',
+  '明细C22=600': jan['C22'].v === 600
 };
 for (const [name, ok] of Object.entries(checks)) {
   if (ok) pass++; else { fail++; console.log('FAIL', name, JSON.stringify(jan[name.split('(')[0]])); }
 }
 const feb = wb.Sheets['2月'];
-if (feb['B4'].v === 23500) pass++; else { fail++; console.log('FAIL 2月结转数值', feb['B4']); }
+if (feb['B4'].v === 22900) pass++; else { fail++; console.log('FAIL 2月结转数值', feb['B4']); }
 const sm = wb.Sheets['年度汇总'];
-if (sm['B3'].v === 10000 && sm['J18'].v === balance(2026, 12) && sm['B6'].v === 10000) pass++;
-else { fail++; console.log('FAIL 汇总表', JSON.stringify(sm['B3']), JSON.stringify(sm['J18']), JSON.stringify(sm['B6'])); }
+if (sm['B3'].v === 10000 && sm['K18'].v === balance(2026, 12) && sm['B6'].v === 10000) pass++;
+else { fail++; console.log('FAIL 汇总表', JSON.stringify(sm['B3']), JSON.stringify(sm['K18']), JSON.stringify(sm['B6'])); }
 
 XLSX.writeFile(wb, __dirname + '/_test_export.xlsx');
 console.log('已写出 _test_export.xlsx 供人工核对');
