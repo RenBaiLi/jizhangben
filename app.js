@@ -69,6 +69,12 @@ function today() {
   const n = new Date();
   return `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`;
 }
+/* 记一笔的默认日期:看的是本月就用今天,看其他月就用那个月的1号 */
+function defDate() {
+  const n = new Date();
+  return (cur.y === n.getFullYear() && cur.m === n.getMonth() + 1)
+    ? today() : `${cur.y}-${pad2(cur.m)}-01`;
+}
 
 /* ================= 界面状态 ================= */
 const now = new Date();
@@ -269,7 +275,7 @@ function expModal(e) {
     <div class="sheet-title">${e ? '编辑支出' : '记一笔支出'}</div>
     <div class="seg">${segBtns}</div>
     <input id="m-amount" type="text" inputmode="decimal" placeholder="金额(元)" value="${e ? e.amount : ''}">
-    <input id="m-date" type="date" value="${e ? e.date : today()}">
+    <input id="m-date" type="date" value="${e ? e.date : defDate()}">
     <input id="m-note" type="text" maxlength="50" placeholder="备注:花在哪了(如 午饭 / 房贷)" value="${e ? esc(e.note) : ''}">
     <div class="sheet-btns">
       ${e ? '<button class="btn danger" data-mdel>删除</button>' : ''}
@@ -285,7 +291,7 @@ function incModal(e) {
     <div class="sheet-title">${e ? '编辑其他收入' : '添加其他收入'}</div>
     <input id="m-source" type="text" maxlength="20" placeholder="来源(如 年终奖 / 红包 / 利息)" value="${e ? esc(e.source) : ''}">
     <input id="m-amount" type="text" inputmode="decimal" placeholder="金额(元)" value="${e ? e.amount : ''}">
-    <input id="m-date" type="date" value="${e ? e.date : today()}">
+    <input id="m-date" type="date" value="${e ? e.date : defDate()}">
     <input id="m-note" type="text" maxlength="50" placeholder="备注(可空)" value="${e ? esc(e.note) : ''}">
     <div class="sheet-btns">
       ${e ? '<button class="btn danger" data-mdel>删除</button>' : ''}
