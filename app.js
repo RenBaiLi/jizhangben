@@ -221,6 +221,40 @@ function yearBars(Y) {
 }
 
 /* ================= 年度页 ================= */
+
+/* 累计结余走势图: SVG 折线, 12 个月月末结余 */
+function balTrend(Y) {
+  const pts = [];
+  let has = false;
+  for (let m = 1; m <= 12; m++) {
+    const b = balance(Y, m);
+    pts.push(b);
+    if (b !== 0 || mData(Y, m).expenses.length || mData(Y, m).incomes.length
+        || mData(Y, m).wifeSalary || mData(Y, m).meSalary) has = true;
+  }
+  if (!has) return '';
+  const W = 320, H = 120, PL = 8, PR = 8, PT = 10, PB = 18;
+  const iw = W - PL - PR, ih = H - PT - PB;
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const span = (max - min) || 1;
+  const x = i => PL + iw * i / 11;
+  const y = v => PT + ih * (1 - (v - min) / span);
+  const path = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const dots = pts.map((v, i) =>
+    `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" fill="#2f9e44"><title>${i + 1}月 ${fmt(v)}</title></circle>`
+  ).join('');
+  const labs = pts.map((v, i) =>
+    `<text x="${x(i).toFixed(1)}" y="${H - 4}" font-size="9" fill="#8e8e93" text-anchor="middle">${i + 1}</text>`
+  ).join('');
+  const minLab = `<text x="${PL}" y="${PT + 8}" font-size="9" fill="#8e8e93">${fmt(max)}</text>`;
+  const maxLab = `<text x="${PL}" y="${PT + ih}" font-size="9" fill="#8e8e93">${fmt(min)}</text>`;
+  return `<svg class="trend" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    ${minLab}${maxLab}
+    <path d="${path}" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round"/>
+    ${dots}${labs}
+  </svg>`;
+}
+
 function vYear() {
   const Y = curY;
   let rows = '', sumIn = 0, sumOut = 0;
@@ -252,6 +286,10 @@ function vYear() {
   <div class="card">
     <div class="card-title">收支对比<small>点柱子看该月明细</small></div>
     ${yearBars(Y)}
+  </div>
+  <div class="card">
+    <div class="card-title">累计结余走势<small>每月末钱包余额</small></div>
+    ${balTrend(Y) || '<div class="empty">今年还没有记录</div>'}
   </div>
   <div class="card">
     <div class="card-title">${Y}年 每月一览<small>点月份看明细</small></div>
