@@ -203,7 +203,7 @@ function vMe() {
   const solo = isSolo();
   return `
   <div class="card">
-    <div class="card-title">${solo ? '称呼' : '两口子称呼'}</div>
+    <div class="card-title">称呼</div>
     ${solo ? '' : `<div class="row"><span>媳妇显示为</span><input class="mini" data-set="wifeName" value="${esc(DB.settings.wifeName)}" maxlength="6"></div>`}
     <div class="row"><span>我显示为</span><input class="mini" data-set="meName" value="${esc(DB.settings.meName)}" maxlength="6"></div>
   </div>
@@ -223,7 +223,7 @@ function vMe() {
     <div class="card-title">说明</div>
     <p>· 数据只保存在本机浏览器里,不上传任何服务器。</p>
     <p>· 清除浏览器网站数据会丢账,建议每月「备份数据」一次。</p>
-    <p>· 两口子各用各的手机时数据不互通;可以在一台手机上记,或用备份/恢复搬家。</p>
+    <p>· 两个人各用各的手机时数据不互通;可以在一台手机上记,或用备份/恢复搬家。</p>
     <p>· 导出的 Excel 与电脑版模板一致,自带公式自动算。</p>
     <div class="preface">
       <p>曾老师记账法:月初雄心壮志,月中开始摆烂,月末全靠回忆和猜。</p>
@@ -598,7 +598,7 @@ function exportYear(Y) {
    `1. 本表由「家庭记账本」App于 ${today()} 导出。`,
    '2. 上月结转、各项合计、结余都是公式,改明细会自动重算。',
    '3. 新增支出写在对应月份的「支出明细」区;行不够时在明细区中间插入行。',
-   '4. 支出人一列必须和表头称呼一致,否则分人汇总会漏算。',
+   '4. 支出人一列必须和表头的名字一致,否则分人汇总会漏算。',
    '5. 年度汇总页只看别改,公式改坏了结余就不对了。'
   ].forEach((t, i) => put(help, i + 1, 1, S(t)));
   help['!cols'] = [{ wch: 80 }];
