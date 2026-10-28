@@ -90,6 +90,38 @@ button{font-family:inherit}
 .chip.inc{background:#e9f9ee;color:var(--green)}
 .empty{color:var(--sub);font-size:13px;text-align:center;padding:14px 0}
 
+/* 日历热力图 */
+.cal{margin:6px 0 12px}
+.cal-w,.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-w span{font-size:11px;color:var(--sub);text-align:center;padding-bottom:2px}
+.cal-g .cd{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--sub);border-radius:6px;background:#f6f6f8;
+}
+.cal-g .cd.h1{background:#d3f9d8;color:#2b8a3e}
+.cal-g .cd.h2{background:#fff3bf;color:#e67700}
+.cal-g .cd.h3{background:#ffe3e3;color:#c92a2a;font-weight:600}
+.cal-key{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--sub);margin-top:8px}
+.cal-key i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-left:8px}
+.cal-key i.h1{background:#d3f9d8}
+.cal-key i.h2{background:#fff3bf}
+.cal-key i.h3{background:#ffe3e3}
+
+/* 年度页柱状图 */
+.ybars{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin:8px 0 4px}
+.yb-col{display:flex;flex-direction:column;align-items:center;cursor:pointer}
+.yb-col span{font-size:10px;color:var(--sub);margin-top:3px}
+.yb-bars{
+  height:110px;width:100%;display:flex;align-items:flex-end;justify-content:center;
+  gap:2px;border-bottom:1px solid #ececf0;padding-bottom:1px;
+}
+.yb-bars i{display:block;width:8px;border-radius:3px 3px 0 0;min-height:1px}
+.yb-bars i.in{background:#8ce99a}
+.yb-bars i.out{background:#ffa8a8}
+.yb-col:active .yb-bars i{opacity:.7}
+.cal-key i.yb-k-in{background:#8ce99a}
+.cal-key i.yb-k-out{background:#ffa8a8}
+
 /* 年度页 */
 .yrow{display:grid;grid-template-columns:32px 1fr 1fr 1fr 1.1fr;gap:3px;justify-content:stretch}
 .yrow .d{font-weight:600}

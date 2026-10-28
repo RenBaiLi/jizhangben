@@ -37,6 +37,15 @@ function totals(y, m) {
     wifeExp: r2(wExp), meExp: r2(mExp), otherExp: r2(oExp), expense: r2(wExp + mExp + oExp)
   };
 }
+/* 某月每天的支出合计(日历热力图用) */
+function dayExpMap(y, m) {
+  const map = {};
+  mData(y, m).expenses.forEach(e => {
+    const day = +e.date.slice(8, 10);
+    map[day] = r2((map[day] || 0) + e.amount);
+  });
+  return map;
+}
 /* 上月结转 = 初始资金 + 之前所有月份的(收入-支出) */
 function carryover(y, m) {
   let bal = r2(DB.settings.initialBalance);
@@ -127,6 +136,26 @@ const incRow = e => `<div class="row entry tap" data-act="editInc" data-id="${e.
   <span class="note">${esc(e.note) || '—'}</span>
   <span class="amt">+${fmt(e.amount)}</span></div>`;
 
+/* 日历热力图: 当月每天支出, 绿<100 黄<500 红>=500 */
+function calHeat(y, m) {
+  const dm = dayExpMap(y, m);
+  const days = new Date(y, m, 0).getDate();
+  const first = new Date(y, m - 1, 1).getDay();   // 0=周日
+  const off = (first + 6) % 7;                     // 转成周一开头
+  const cls = v => v == null ? '' : v < 100 ? 'h1' : v < 500 ? 'h2' : 'h3';
+  let cells = '';
+  for (let i = 0; i < off; i++) cells += '<span class="cd"></span>';
+  for (let d = 1; d <= days; d++) {
+    const v = dm[d];
+    cells += `<span class="cd ${cls(v)}"${v != null ? ` title="${d}日 支出 ${fmt(v)}"` : ''}>${d}</span>`;
+  }
+  return `<div class="cal">
+    <div class="cal-w"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+    <div class="cal-g">${cells}</div>
+    <div class="cal-key"><i class="h1"></i>&lt;100 <i class="h2"></i>&lt;500 <i class="h3"></i>≥500</div>
+  </div>`;
+}
+
 function vMonth() {
   const { y, m } = cur;
   const t = totals(y, m), carry = carryover(y, m), bal = balance(y, m);
@@ -162,9 +191,33 @@ function vMonth() {
 
   <div class="card">
     <div class="card-title">支出<small>${expSub}</small></div>
+    ${exps.length ? calHeat(y, m) : ''}
     ${exps.length ? exps.map(expRow).join('') : '<div class="empty">还没有支出记录,点右下角 ＋ 记一笔</div>'}
     <div class="row total"><span>支出合计</span><span class="val">${fmt(t.expense)}</span></div>
   </div>`;
+}
+
+/* 年度页月度收支柱状图: 绿=收入 红=支出, 同月成对 */
+function yearBars(Y) {
+  let max = 0;
+  const list = [];
+  for (let m = 1; m <= 12; m++) {
+    const t = totals(Y, m);
+    list.push(t);
+    if (t.income > max) max = t.income;
+    if (t.expense > max) max = t.expense;
+  }
+  if (!max) return '<div class="empty">今年还没有记录</div>';
+  let cols = '';
+  list.forEach((t, i) => {
+    const hi = Math.round(t.income / max * 100), ho = Math.round(t.expense / max * 100);
+    cols += `<div class="yb-col" data-act="gotoM" data-m="${i + 1}" title="${i + 1}月 收入 ${fmt(t.income)} / 支出 ${fmt(t.expense)}">
+      <div class="yb-bars"><i class="in" style="height:${hi}%"></i><i class="out" style="height:${ho}%"></i></div>
+      <span>${i + 1}</span>
+    </div>`;
+  });
+  return `<div class="ybars">${cols}</div>
+  <div class="cal-key"><i class="yb-k-in"></i>收入 <i class="yb-k-out"></i>支出</div>`;
 }
 
 /* ================= 年度页 ================= */
@@ -195,6 +248,10 @@ function vYear() {
     <div class="row"><span>全年收入</span><span class="val">+${fmt(sumIn)}</span></div>
     <div class="row"><span>全年支出</span><span class="val">-${fmt(sumOut)}</span></div>
     <div class="row total"><span>年末结余(12月底)</span><span class="val ${yearEnd < 0 ? 'neg' : ''}">${fmt(yearEnd)}</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">收支对比<small>点柱子看该月明细</small></div>
+    ${yearBars(Y)}
   </div>
   <div class="card">
     <div class="card-title">${Y}年 每月一览<small>点月份看明细</small></div>
