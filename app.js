@@ -8,7 +8,8 @@ let DB = (() => {
 })();
 const save = () => localStorage.setItem(LS_KEY, JSON.stringify(DB));
 const r2 = n => Math.round((+n || 0) * 100) / 100;
-const key = (y, m) => `${y}-${String(m).padStart(2, '0')}`;
+const pad2 = n => (n < 10 ? '0' : '') + n;
+const key = (y, m) => `${y}-${pad2(m)}`;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 function mData(y, m, create) {
@@ -52,13 +53,13 @@ function findEntry(kind, id) {
 }
 
 /* ================= 工具 ================= */
-const esc = s => String(s ?? '').replace(/[&<>"']/g,
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = n => '¥' + r2(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const mmdd = ds => `${+ds.slice(5, 7)}月${+ds.slice(8, 10)}日`;
 function today() {
   const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  return `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`;
 }
 
 /* ================= 界面状态 ================= */
@@ -208,7 +209,7 @@ function numModal(title, val, ctx) {
   modalCtx = ctx;
   openModal(`
     <div class="sheet-title">${esc(title)}</div>
-    <input id="m-num" type="number" inputmode="decimal" step="0.01" min="0" value="${val || ''}" placeholder="0.00">
+    <input id="m-num" type="text" inputmode="decimal" value="${val || ''}" placeholder="0.00">
     <div class="sheet-btns">
       <button class="btn ghost" data-mclose>取消</button>
       <button class="btn primary" data-msave>保存</button>
@@ -224,7 +225,7 @@ function expModal(e) {
       <button type="button" data-mp="wife" class="${modalCtx.person === 'wife' ? 'on wife' : ''}">${esc(pName('wife'))}</button>
       <button type="button" data-mp="me" class="${modalCtx.person === 'me' ? 'on me' : ''}">${esc(pName('me'))}</button>
     </div>
-    <input id="m-amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="金额(元)" value="${e ? e.amount : ''}">
+    <input id="m-amount" type="text" inputmode="decimal" placeholder="金额(元)" value="${e ? e.amount : ''}">
     <input id="m-date" type="date" value="${e ? e.date : today()}">
     <input id="m-note" type="text" maxlength="50" placeholder="备注:花在哪了(如 午饭 / 房贷)" value="${e ? esc(e.note) : ''}">
     <div class="sheet-btns">
@@ -240,7 +241,7 @@ function incModal(e) {
   openModal(`
     <div class="sheet-title">${e ? '编辑其他收入' : '添加其他收入'}</div>
     <input id="m-source" type="text" maxlength="20" placeholder="来源(如 年终奖 / 红包 / 利息)" value="${e ? esc(e.source) : ''}">
-    <input id="m-amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="金额(元)" value="${e ? e.amount : ''}">
+    <input id="m-amount" type="text" inputmode="decimal" placeholder="金额(元)" value="${e ? e.amount : ''}">
     <input id="m-date" type="date" value="${e ? e.date : today()}">
     <input id="m-note" type="text" maxlength="50" placeholder="备注(可空)" value="${e ? esc(e.note) : ''}">
     <div class="sheet-btns">
