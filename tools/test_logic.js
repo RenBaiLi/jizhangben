@@ -109,9 +109,9 @@ function buildExport(Y) {
   put(sum, 3, 2, N(carryover(Y, 1)));
   const headRow = solo
     ? ['月份', '上月结转', `${mn}工资`, '其他收入', '收入合计',
-       `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注']
+       `${mn}支出`, '其他支出', '支出合计', '当月存下', '本月结余', '备注']
     : ['月份', '上月结转', `${wn}工资`, `${mn}工资`, '其他收入', '收入合计',
-       `${wn}支出`, `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注'];
+       `${wn}支出`, `${mn}支出`, '其他支出', '支出合计', '当月存下', '本月结余', '备注'];
   headRow.forEach((h, i) => put(sum, 5, 1 + i, S(h)));
   for (let m = 1; m <= 12; m++) {
     const r = 5 + m, t = totals(Y, m);
@@ -124,7 +124,8 @@ function buildExport(Y) {
       put(sum, r, 6, N(t.meExp));
       put(sum, r, 7, N(t.otherExp));
       put(sum, r, 8, N(t.expense));
-      put(sum, r, 9, N(balance(Y, m)));
+      put(sum, r, 9, N(t.income - t.expense));
+      put(sum, r, 10, N(balance(Y, m)));
     } else {
       put(sum, r, 3, N(t.wifeSalary));
       put(sum, r, 4, N(t.meSalary));
@@ -134,7 +135,8 @@ function buildExport(Y) {
       put(sum, r, 8, N(t.meExp));
       put(sum, r, 9, N(t.otherExp));
       put(sum, r, 10, N(t.expense));
-      put(sum, r, 11, N(balance(Y, m)));
+      put(sum, r, 11, N(t.income - t.expense));
+      put(sum, r, 12, N(balance(Y, m)));
     }
   }
   put(sum, 18, 1, S('全年合计')); put(sum, 18, 2, S('—'));
@@ -144,13 +146,17 @@ function buildExport(Y) {
   if (solo) {
     put(sum, 18, 3, N(yr.in)); put(sum, 18, 4, N(yr.in)); put(sum, 18, 5, N(yr.in));
     put(sum, 18, 6, N(yr.out)); put(sum, 18, 7, N(yr.out)); put(sum, 18, 8, N(yr.out));
-    put(sum, 18, 9, N(bal12));
+    put(sum, 18, 9, N(yr.in - yr.out));
+    put(sum, 18, 10, N(bal12));
+    put(sum, 18, 11, S('← 存下=全年收入-支出'));
   } else {
     put(sum, 18, 3, N(yr.in)); put(sum, 18, 4, N(yr.in)); put(sum, 18, 5, N(yr.in)); put(sum, 18, 6, N(yr.in));
     put(sum, 18, 7, N(yr.out)); put(sum, 18, 8, N(yr.out)); put(sum, 18, 9, N(yr.out)); put(sum, 18, 10, N(yr.out));
-    put(sum, 18, 11, N(bal12));
+    put(sum, 18, 11, N(yr.in - yr.out));
+    put(sum, 18, 12, N(bal12));
+    put(sum, 18, 13, S('← 存下=全年收入-支出'));
   }
-  const lastC = solo ? 9 : 11;
+  const lastC = solo ? 10 : 12;
   sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: lastC } });
   sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: lastC } }, { s: { r: 2, c: 2 }, e: { r: 2, c: lastC } }];
   XLSX.utils.book_append_sheet(wb, sum, '年度汇总');
@@ -251,9 +257,10 @@ for (const [name, ok] of Object.entries(checks)) {
 }
 const feb = wb.Sheets['2月'];
 if (feb['B4'].v === 22900) pass++; else { fail++; console.log('FAIL 2月结转数值', feb['B4']); }
+function yrSaved(Y) { let s = 0; for (let m = 1; m <= 12; m++) { const t = totals(Y, m); s = r2(s + t.income - t.expense); } return s; }
 const sm = wb.Sheets['年度汇总'];
-if (sm['B3'].v === 10000 && sm['K18'].v === balance(2026, 12) && sm['B6'].v === 10000) pass++;
-else { fail++; console.log('FAIL 汇总表', JSON.stringify(sm['B3']), JSON.stringify(sm['K18']), JSON.stringify(sm['B6'])); }
+if (sm['B3'].v === 10000 && sm['L18'].v === balance(2026, 12) && sm['B6'].v === 10000 && sm['K6'].v === 12900 && sm['K18'].v === yrSaved(2026)) pass++;
+else { fail++; console.log('FAIL 汇总表', JSON.stringify(sm['B3']), JSON.stringify(sm['L18']), JSON.stringify(sm['B6']), JSON.stringify(sm['K6']), JSON.stringify(sm['K18'])); }
 
 XLSX.writeFile(wb, __dirname + '/_test_export.xlsx');
 console.log('已写出 _test_export.xlsx 供人工核对');
@@ -266,15 +273,19 @@ eq(balance(2026, 1), 22900, 'solo: 结余不变');
 
 const wbS = buildExport(2026);
 const smS = wbS.Sheets['年度汇总'];
-const sc = {  // solo 汇总表头应只有 10 列(A..J), 没有 K/L
+const sc = {  // solo 汇总表头应有 11 列(A..K), 没有 L
   '表头C=我工资': smS['C5'].v === '我工资',
-  '表头J=备注': smS['J5'].v === '备注',
-  '没有K列表头': !smS['K5'],
+  '表头I=当月存下': smS['I5'].v === '当月存下',
+  '表头J=本月结余': smS['J5'].v === '本月结余',
+  '表头K=备注': smS['K5'].v === '备注',
+  '没有L列表头': !smS['L5'],
   '1月C=我工资数值': smS['C6'].v === 12000,
   '1月E=收入合计': smS['E6'].v === 20500,
-  '1月I=本月结余': smS['I6'].v === 22900,
-  '合计行I=年末结余': smS['I18'].v === balance(2026, 12),
-  'ref只到J列': smS['!ref'].endsWith('J18')
+  '1月I=当月存下': smS['I6'].v === 12900,
+  '1月J=本月结余': smS['J6'].v === 22900,
+  '合计行I=全年存下': smS['I18'].v === yrSaved(2026),
+  '合计行J=年末结余': smS['J18'].v === balance(2026, 12),
+  'ref只到K列': smS['!ref'].endsWith('K18')
 };
 for (const [name, ok] of Object.entries(sc)) {
   if (ok) pass++; else { fail++; console.log('FAIL solo汇总', name); }

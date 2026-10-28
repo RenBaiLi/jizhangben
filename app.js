@@ -468,9 +468,9 @@ function exportYear(Y) {
   put(sum, 3, 2, N(carryover(Y, 1)));
   const headRow = solo
     ? ['月份', '上月结转', `${mn}工资`, '其他收入', '收入合计',
-       `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注']
+       `${mn}支出`, '其他支出', '支出合计', '当月存下', '本月结余', '备注']
     : ['月份', '上月结转', `${wn}工资`, `${mn}工资`, '其他收入', '收入合计',
-       `${wn}支出`, `${mn}支出`, '其他支出', '支出合计', '本月结余', '备注'];
+       `${wn}支出`, `${mn}支出`, '其他支出', '支出合计', '当月存下', '本月结余', '备注'];
   headRow.forEach((h, i) => put(sum, 5, 1 + i, S(h)));
   if (!solo) put(sum, 3, 3, S('← 自动: 本年1月之前的累计结余'));
   for (let m = 1; m <= 12; m++) {
@@ -484,7 +484,8 @@ function exportYear(Y) {
       put(sum, r, 6, N(t.meExp));
       put(sum, r, 7, N(t.otherExp));
       put(sum, r, 8, N(t.expense));
-      put(sum, r, 9, N(balance(Y, m)));
+      put(sum, r, 9, N(t.income - t.expense));
+      put(sum, r, 10, N(balance(Y, m)));
     } else {
       put(sum, r, 3, N(t.wifeSalary));
       put(sum, r, 4, N(t.meSalary));
@@ -494,7 +495,8 @@ function exportYear(Y) {
       put(sum, r, 8, N(t.meExp));
       put(sum, r, 9, N(t.otherExp));
       put(sum, r, 10, N(t.expense));
-      put(sum, r, 11, N(balance(Y, m)));
+      put(sum, r, 11, N(t.income - t.expense));
+      put(sum, r, 12, N(balance(Y, m)));
     }
   }
   put(sum, 18, 1, S('全年合计'));
@@ -505,18 +507,20 @@ function exportYear(Y) {
   if (solo) {
     put(sum, 18, 3, N(yr.in)); put(sum, 18, 4, N(yr.in)); put(sum, 18, 5, N(yr.in));
     put(sum, 18, 6, N(yr.out)); put(sum, 18, 7, N(yr.out)); put(sum, 18, 8, N(yr.out));
-    put(sum, 18, 9, N(bal12));
-    put(sum, 18, 10, S('← 结余列为年末结余'));
+    put(sum, 18, 9, N(yr.in - yr.out));
+    put(sum, 18, 10, N(bal12));
+    put(sum, 18, 11, S('← 存下=全年收入-支出'));
   } else {
     put(sum, 18, 3, N(yr.in)); put(sum, 18, 4, N(yr.in)); put(sum, 18, 5, N(yr.in)); put(sum, 18, 6, N(yr.in));
     put(sum, 18, 7, N(yr.out)); put(sum, 18, 8, N(yr.out)); put(sum, 18, 9, N(yr.out)); put(sum, 18, 10, N(yr.out));
-    put(sum, 18, 11, N(bal12));
-    put(sum, 18, 12, S('← 结余列为年末结余'));
+    put(sum, 18, 11, N(yr.in - yr.out));
+    put(sum, 18, 12, N(bal12));
+    put(sum, 18, 13, S('← 存下=全年收入-支出'));
   }
-  const lastC = solo ? 9 : 11;
+  const lastC = solo ? 10 : 12;
   sum['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 17, c: lastC } });
   sum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: lastC } }, { s: { r: 2, c: 2 }, e: { r: 2, c: lastC } }];
-  sum['!cols'] = (solo ? [10, 13, 12, 12, 13, 12, 12, 13, 14, 24] : [10, 13, 12, 12, 12, 13, 12, 12, 12, 13, 14, 24]).map(wch => ({ wch }));
+  sum['!cols'] = (solo ? [10, 13, 12, 12, 13, 12, 12, 13, 12, 14, 24] : [10, 13, 12, 12, 12, 13, 12, 12, 12, 13, 12, 14, 24]).map(wch => ({ wch }));
   XLSX.utils.book_append_sheet(wb, sum, '年度汇总');
 
   /* 12个月 */
