@@ -47,21 +47,26 @@ button{font-family:inherit}
   background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;
   box-shadow:0 1px 3px rgba(0,0,0,.05);
 }
-.card-title{font-size:16px;font-weight:600;margin-bottom:6px}
-.card-title small{font-weight:400;color:var(--sub);font-size:12px;margin-left:6px}
+.card-title{font-size:16px;font-weight:600;margin-bottom:10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.card-title small{font-weight:400;color:var(--sub);font-size:12px;margin-left:0}
 
 /* 结余大卡 */
 .hero{
   background:linear-gradient(135deg,#37b24d,var(--green-d));
-  color:#fff;
+  color:#fff;border-radius:20px;position:relative;overflow:hidden;
 }
-.hero-label{font-size:13px;opacity:.9}
-.hero-bal{font-size:36px;font-weight:700;margin:6px 0 14px;font-variant-numeric:tabular-nums}
-.hero-bal.neg{color:#ffc9c9}
-.hero-stats{display:flex;border-top:1px solid rgba(255,255,255,.25);padding-top:10px}
+.hero::after{
+  content:"";position:absolute;top:-40px;right:-30px;width:140px;height:140px;
+  border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none;
+}
+.hero-label{font-size:13px;opacity:.92;position:relative}
+.hero-bal{font-size:38px;font-weight:700;margin:8px 0 16px;font-variant-numeric:tabular-nums;letter-spacing:-.5px;position:relative}
+.hero-bal.neg{color:#ffd6d6}
+.hero-stats{display:flex;border-top:1px solid rgba(255,255,255,.22);padding-top:12px;position:relative}
 .hero-stats>div{flex:1;text-align:center}
+.hero-stats>div+div{border-left:1px solid rgba(255,255,255,.14)}
 .hero-stats span{display:block;font-size:11px;opacity:.85}
-.hero-stats b{display:block;font-size:14px;margin-top:2px;font-variant-numeric:tabular-nums}
+.hero-stats b{display:block;font-size:14px;margin-top:3px;font-variant-numeric:tabular-nums;font-weight:600}
 
 /* 列表行 */
 .row{
@@ -78,11 +83,11 @@ button{font-family:inherit}
 
 /* 明细行 */
 .entry{display:grid;grid-template-columns:auto auto 1fr auto;gap:8px;justify-content:stretch}
-.entry .d{color:var(--sub);font-size:13px;white-space:nowrap}
+.entry .d{color:var(--sub);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .entry .note{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-.entry .amt{font-variant-numeric:tabular-nums}
+.entry .amt{font-variant-numeric:tabular-nums;text-align:right}
 .chip{
-  font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap;
+  font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap;font-weight:500;
 }
 .chip.wife{background:#fff0f5;color:var(--pink)}
 .chip.me{background:#e7f1ff;color:var(--blue)}
@@ -91,20 +96,23 @@ button{font-family:inherit}
 .empty{color:var(--sub);font-size:13px;text-align:center;padding:14px 0}
 
 /* 日历热力图 */
-.cal{margin:6px 0 12px}
-.cal-w,.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.cal-w span{font-size:11px;color:var(--sub);text-align:center;padding-bottom:2px}
+.cal{margin:8px 0 14px}
+.cal-w,.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal-w span{font-size:11px;color:var(--sub);text-align:center;padding-bottom:3px}
 .cal-g .cd{
   aspect-ratio:1;display:flex;align-items:center;justify-content:center;
-  font-size:12px;color:var(--sub);border-radius:6px;background:#f6f6f8;
+  font-size:12px;color:var(--sub);border-radius:8px;background:#f6f6f8;
+  transition:transform .12s;
 }
 .cal-g .cd.h1{background:#d3f9d8;color:#2b8a3e}
 .cal-g .cd.h2{background:#fff3bf;color:#e67700}
 .cal-g .cd.h3{background:#ffe3e3;color:#c92a2a;font-weight:600}
-.cal-g .cd.tap:active{opacity:.6}
-.cal-g .cd.now{outline:2px solid var(--green);outline-offset:-2px}
-.cal-key{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--sub);margin-top:8px}
+.cal-g .cd.tap:active{transform:scale(.92);opacity:.8}
+.cal-g .cd.now{box-shadow:inset 0 0 0 2px var(--green)}
+.cal-g .cd.now.h1,.cal-g .cd.now.h2,.cal-g .cd.now.h3{font-weight:700}
+.cal-key{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--sub);margin-top:10px;justify-content:flex-end}
 .cal-key i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-left:8px}
+.cal-key i:first-child{margin-left:0}
 .cal-key i.h1{background:#d3f9d8}
 .cal-key i.h2{background:#fff3bf}
 .cal-key i.h3{background:#ffe3e3}
@@ -127,6 +135,18 @@ button{font-family:inherit}
 /* 累计结余走势图 */
 .trend{display:block;width:100%;height:auto;margin-top:4px}
 .trend text{user-select:none}
+
+/* TOP10 排名徽标 */
+.tentry{display:grid;grid-template-columns:24px auto auto 1fr auto;gap:8px;align-items:center;padding:9px 0;border-bottom:.5px solid #ececf0;font-size:14px}
+.tentry:last-child{border-bottom:none}
+.tentry .rank{font-size:13px;font-weight:700;color:var(--sub);text-align:center;font-variant-numeric:tabular-nums}
+.tentry .rank.r1{color:#d4a017}
+.tentry .rank.r2{color:#868e96}
+.tentry .rank.r3{color:#a8590a}
+.tentry .rank.medal{font-size:15px}
+.tentry .d{color:var(--sub);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tentry .note{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.tentry .amt{font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
 
 /* 购物小票样式: 当日详情 */
 .receipt{
@@ -158,14 +178,17 @@ button{font-family:inherit}
 .receipt .empty{padding:10px 0;text-align:center}
 
 /* 年度页 */
-.yrow{display:grid;grid-template-columns:32px 1fr 1fr 1fr 1.1fr;gap:3px;justify-content:stretch}
+.yrow{display:grid;grid-template-columns:34px 1fr 1fr 1fr 1.15fr;gap:5px;justify-content:stretch;padding:9px 0;border-bottom:.5px solid #ececf0;font-size:14px}
 .yrow .d{font-weight:600}
-.yc{text-align:right;font-variant-numeric:tabular-nums;font-size:12px}
+.yc{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
 .yc i{font-style:normal;color:#c7c7cc;font-size:10px;margin-right:1px}
 .yc.bal{font-weight:600}
-.yc.cum{color:var(--sub);font-size:11px}
-.yhead{font-size:11px;color:var(--sub)}
-.yrow.yhead{padding-bottom:4px}
+.yc.cum{color:var(--sub);font-size:12px}
+.yhead{font-size:11px;color:var(--sub);font-weight:500;letter-spacing:.5px}
+.yrow.yhead{padding-bottom:6px;border-bottom:1px solid #ececf0}
+.yrow.tap:active{background:#f6f6f8}
+.yrow.yfoot{font-weight:600;border-top:1.5px solid #ececf0;border-bottom:none}
+.yrow.yfoot .yc{font-size:13px}
 
 /* 按钮 */
 .btn{
@@ -235,14 +258,14 @@ button{font-family:inherit}
 /* 设置页 */
 input.mini{
   border:1px solid #ddd;border-radius:8px;padding:7px 10px;
-  font-size:15px;width:120px;text-align:right;outline:none;
+  font-size:15px;width:120px;text-align:right;outline:none;transition:border-color .15s;
 }
 input.mini:focus{border-color:var(--green)}
 label.btn{text-align:center}
-.about p{font-size:13px;color:var(--sub);margin:6px 0;line-height:1.6}
-.about .ver{text-align:center;color:#c7c7cc;font-size:12px;margin-top:10px}
-.about .preface{border-top:.5px solid #ececf0;margin-top:10px;padding-top:10px}
+.about .card-title{margin-bottom:4px}
+.about .preface{border-top:.5px solid #ececf0;margin-top:10px;padding-top:12px}
 .about .preface p{font-size:13px;color:#6b6b70;line-height:1.8;margin:8px 0}
+.about .preface p.ver{text-align:center;color:#c7c7cc;font-size:12px;margin-top:14px}
 .hint{font-size:12px;color:var(--sub);margin:6px 2px 0;line-height:1.5}
 </style>
 </head>

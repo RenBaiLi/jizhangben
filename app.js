@@ -323,7 +323,9 @@ function topExp(Y) {
   for (let m = 1; m <= 12; m++) mData(Y, m).expenses.forEach(e => all.push(e));
   if (!all.length) return '<div class="empty">今年还没有支出记录</div>';
   all.sort((a, b) => b.amount - a.amount);
-  return all.slice(0, 10).map(e => `<div class="row entry">
+  const medal = ['🥇', '🥈', '🥉'];
+  return all.slice(0, 10).map((e, i) => `<div class="row tentry">
+    <span class="rank ${i < 3 ? 'r' + (i + 1) : ''} ${i < 3 ? 'medal' : ''}">${i < 3 ? medal[i] : (i + 1)}</span>
     <span class="d">${mmdd(e.date)}</span>
     <span class="chip ${e.person}">${esc(pName(e.person))}</span>
     <span class="note">${esc(e.note) || '—'}</span>
@@ -351,6 +353,12 @@ function vYear() {
       <span class="yc cum ${b < 0 ? 'neg' : ''}">${fmt(b)}</span></div>`;
   }
   const yearEnd = balance(Y, 12);
+  rows += `<div class="row yrow yfoot">
+    <span class="d">合计</span>
+    <span class="yc bal">${fmt(sumIn)}</span>
+    <span class="yc bal">${fmt(sumOut)}</span>
+    <span class="yc bal">${fmt(r2(sumIn - sumOut))}</span>
+    <span class="yc cum ${yearEnd < 0 ? 'neg' : ''}">${fmt(yearEnd)}</span></div>`;
   return `
   <div class="card">
     <div class="row tap" data-act="init"><span>初始资金(开始记账时的积蓄)</span><span class="val">${fmt(DB.settings.initialBalance)} <i>›</i></span></div>
@@ -382,30 +390,26 @@ function vMe() {
   const solo = isSolo();
   return `
   <div class="card">
-    <div class="card-title">称呼</div>
+    <div class="card-title">称呼 <small>两人各用各的手机时改这里</small></div>
     ${solo ? '' : `<div class="row"><span>媳妇显示为</span><input class="mini" data-set="wifeName" value="${esc(DB.settings.wifeName)}" maxlength="6"></div>`}
     <div class="row"><span>我显示为</span><input class="mini" data-set="meName" value="${esc(DB.settings.meName)}" maxlength="6"></div>
   </div>
   <div class="card">
-    <div class="card-title">数据</div>
+    <div class="card-title">数据 <small>本机存储 · 不上传服务器</small></div>
     <div class="row tap" data-act="init"><span>初始资金</span><span class="val">${fmt(DB.settings.initialBalance)} <i>›</i></span></div>
     <div class="row tap" data-act="mode"><span>记账模式</span><span class="val">${solo ? '🧍 一人' : '👫 两人'} <i>›</i></span></div>
-    <button class="btn ghost" data-act="backup">备份数据(导出JSON)</button>
-    <label class="btn ghost">恢复备份(导入JSON)<input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
-    <button class="btn danger" data-act="wipe">清空全部数据</button>
   </div>
   <div class="card">
-    <div class="card-title">导出</div>
-    <button class="btn primary" data-act="export">导出 ${cur.y} 年 Excel</button>
+    <div class="card-title">备份与导出</div>
+    <button class="btn ghost" data-act="backup">📤 备份数据 (导出JSON)</button>
+    <label class="btn ghost">📥 恢复备份 (导入JSON)<input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
+    <button class="btn danger" data-act="wipe">🗑 清空全部数据</button>
+    <button class="btn primary" data-act="export">📊 导出 ${cur.y} 年 Excel</button>
   </div>
   <div class="card about">
-    <div class="card-title">说明</div>
-    <p>· 数据只保存在本机浏览器里,不上传任何服务器。</p>
-    <p>· 清除浏览器网站数据会丢账,建议每月「备份数据」一次。</p>
-    <p>· 两个人各用各的手机时数据不互通;可以在一台手机上记,或用备份/恢复搬家。</p>
-    <p>· 导出的 Excel 与电脑版模板一致,自带公式自动算。</p>
+    <div class="card-title">关于 · 曾老师记账法</div>
     <div class="preface">
-      <p>曾老师记账法:月初雄心壮志,月中开始摆烂,月末全靠回忆和猜。</p>
+      <p>月初雄心壮志,月中开始摆烂,月末全靠回忆和猜。</p>
       <p>收入?记得。哪天进的?不知道。谁花的?可能是猫。</p>
       <p>鉴于本家庭财政已经混乱到需要考古学家介入,本人推出这款记账神器。曾老师记的账,我愿称之为《甲骨文复习资料》。</p>
       <p>为了让这个家还能算清谁欠谁一顿火锅,本人亲自下场开发了本软件。因为穷,服务器租不起,数据全靠手机本地硬存——摔一次手机,咱家直接财务清零,重新开始投胎(记过一次大账后,请记得及时导出备份数据)。</p>
