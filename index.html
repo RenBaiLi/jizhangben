@@ -96,7 +96,7 @@ button{font-family:inherit}
 .empty{color:var(--sub);font-size:13px;text-align:center;padding:14px 0}
 
 /* 日历热力图 */
-.cal{margin:8px 0 14px}
+.cal{margin:8px 0 14px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:10;background:#fff;padding:8px 4px 10px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
 .cal-w,.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .cal-w span{font-size:11px;color:var(--sub);text-align:center;padding-bottom:3px}
 .cal-g .cd{

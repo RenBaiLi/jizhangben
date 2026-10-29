@@ -156,9 +156,8 @@ function calHeat(y, m) {
   for (let d = 1; d <= days; d++) {
     const v = dm[d];
     const ds = `${y}-${pad2(m)}-${pad2(d)}`;
-    cells += v != null
-      ? `<span class="cd ${cls(v)} tap${ds === todayStr ? ' now' : ''}" data-act="day" data-date="${ds}" title="${d}日 支出 ${fmt(v)} · 点击查看">${d}</span>`
-      : `<span class="cd${ds === todayStr ? ' now' : ''}" title="${d}日 无支出">${d}</span>`;
+    const cls2 = v != null ? cls(v) : '';
+    cells += `<span class="cd ${cls2} tap${ds === todayStr ? ' now' : ''}" data-act="day" data-date="${ds}" title="${d}日 ${v != null ? '支出 ' + fmt(v) : '无支出'} · 点击查看">${d}</span>`;
   }
   return `<div class="cal">
     <div class="cal-w"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
