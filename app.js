@@ -208,7 +208,7 @@ function vMonth() {
   </div>`;
 }
 
-/* 当日收支详情页: 点日历格子跳转过来的 */
+/* 当日收支详情页: 购物小票样式, 点日历格子跳转过来 */
 function vDay(dateStr) {
   const yy = +dateStr.slice(0, 4), mm = +dateStr.slice(5, 7), dd = +dateStr.slice(8, 10);
   const d = mData(yy, mm);
@@ -217,41 +217,45 @@ function vDay(dateStr) {
   const expSum = r2(exps.reduce((s, e) => s + e.amount, 0));
   const incSum = r2(incs.reduce((s, e) => s + e.amount, 0));
   const net = r2(incSum - expSum);
-  const expRows = exps.length
-    ? exps.map(e => `<div class="row entry tap" data-act="editExp" data-id="${e.id}">
-        <span class="chip ${e.person}">${esc(pName(e.person))}</span>
-        <span class="note">${esc(e.note) || '—'}</span>
-        <span class="amt">${fmt(e.amount)}</span></div>`).join('')
-    : '<div class="empty">这天没有支出记录,点右上角 ＋ 记一笔</div>';
-  const incRows = incs.length
-    ? incs.map(e => `<div class="row entry tap" data-act="editInc" data-id="${e.id}">
-        <span class="chip inc">${esc(e.source) || '收入'}</span>
-        <span class="note">${esc(e.note) || '—'}</span>
-        <span class="amt">+${fmt(e.amount)}</span></div>`).join('')
-    : '';
+  const wkday = ['日', '一', '二', '三', '四', '五', '六'][new Date(yy, mm - 1, dd).getDay()];
+
+  // 收入也按金额倒序混入(让小票更像真实流水), 但用不同 chip 区分
+  const expLines = exps.map(e =>
+    `<div class="rct-line tap" data-act="editExp" data-id="${e.id}">
+      <span class="nm">${esc(e.note) || '支出'}<i class="tag ${e.person}">${esc(pName(e.person))}</i></span>
+      <span class="am">-${fmt(e.amount).slice(1)}</span>
+    </div>`).join('');
+  const incLines = incs.map(e =>
+    `<div class="rct-line tap" data-act="editInc" data-id="${e.id}">
+      <span class="nm">${esc(e.source) || '其他收入'}<i class="tag inc">${esc(e.note) || '收入'}</i></span>
+      <span class="am">+${fmt(e.amount).slice(1)}</span>
+    </div>`).join('');
+
+  const body = !exps.length && !incs.length
+    ? '<div class="empty">这天还没有收支记录</div>'
+    : `${expLines
+      }<div class="rct-dash"></div>
+      <div class="rct-total"><span>支出小计</span><span class="am">${fmt(expSum).slice(1)}</span></div>`
+      + (incLines
+        ? `${incLines}<div class="rct-dash"></div>
+          <div class="rct-total"><span>收入小计</span><span class="am">${fmt(incSum).slice(1)}</span></div>`
+        : '');
+
   return `
-  <div class="card hero">
-    <div class="hero-label">${mm}月${dd}日 收支详情</div>
-    <div class="hero-bal ${net < 0 ? 'neg' : ''}">${fmt(net)}</div>
-    <div class="hero-stats">
-      <div><span>当日收入</span><b>+${fmt(incSum)}</b></div>
-      <div><span>当日支出</span><b>-${fmt(expSum)}</b></div>
-      <div><span>当天净额</span><b>${net < 0 ? '' : '+'}${fmt(net)}</b></div>
+  <div class="receipt">
+    <div class="rct-head">
+      <div class="store">家 庭 账</div>
+      <div class="date">${yy}-${pad2(mm)}-${pad2(dd)} 周${wkday}</div>
+      <div class="sub">当日收支小票</div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">支出明细<small>共 ${exps.length} 笔</small></div>
-    ${expRows}
-    ${expRows ? `<div class="row total"><span>支出小计</span><span class="val">${fmt(expSum)}</span></div>` : ''}
-  </div>
-
-  ${incRows ? `
-  <div class="card">
-    <div class="card-title">其他收入<small>共 ${incs.length} 笔</small></div>
-    ${incRows}
-    <div class="row total"><span>收入小计</span><span class="val">${fmt(incSum)}</span></div>
-  </div>` : ''}`;
+    ${exps.length ? '<div class="rct-sec">- - - 支 出 - - -</div>' : ''}
+    ${body}
+    <div class="rct-dash"></div>
+    <div class="rct-net ${net < 0 ? 'neg' : ''}">
+      <span>当天净额</span><span class="am">${net < 0 ? '-' : '+'}${fmt(Math.abs(net)).slice(1)}</span>
+    </div>
+    <div class="rct-foot">谢谢惠顾 · 点行可编辑 · 点 ＋ 记今日<br>长按小票或点 ‹ 返回月视图</div>
+  </div>`;
 }
 
 /* 年度页月度收支柱状图: 绿=收入 红=支出, 同月成对 */

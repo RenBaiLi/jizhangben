@@ -128,6 +128,35 @@ button{font-family:inherit}
 .trend{display:block;width:100%;height:auto;margin-top:4px}
 .trend text{user-select:none}
 
+/* 购物小票样式: 当日详情 */
+.receipt{
+  background:#fffef7;max-width:330px;margin:0 auto 14px;
+  padding:16px 14px 0;border-radius:3px;
+  box-shadow:0 2px 12px rgba(0,0,0,.09);
+  font-family:"Courier New",Consolas,Menlo,monospace;color:#1c1c1e;
+}
+.receipt *{font-family:inherit}
+.rct-head{text-align:center;border-bottom:1px dashed #b8b8bd;padding-bottom:10px;margin-bottom:6px}
+.rct-head .store{font-size:16px;font-weight:700;letter-spacing:2px}
+.rct-head .date{font-size:11px;color:#6b6b70;margin-top:4px;letter-spacing:1px}
+.rct-head .sub{font-size:10px;color:#8e8e93;margin-top:2px;letter-spacing:1px}
+.rct-sec{font-size:10px;color:#6b6b70;text-align:center;letter-spacing:2px;margin:10px 0 4px}
+.rct-line{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0}
+.rct-line.tap:active{background:#fff7e6}
+.rct-line .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rct-line .nm .tag{font-style:normal;font-size:9px;padding:1px 4px;border-radius:2px;margin-left:5px;letter-spacing:0;white-space:nowrap}
+.rct-line .nm .tag.wife{background:#fff0f5;color:#ff5d8f}
+.rct-line .nm .tag.me{background:#e7f1ff;color:#0a84ff}
+.rct-line .nm .tag.other{background:#f3f0ff;color:#845ef7}
+.rct-line .nm .tag.inc{background:#e9f9ee;color:#2f9e44}
+.rct-line .am{font-variant-numeric:tabular-nums;white-space:nowrap}
+.rct-dash{border-top:1px dashed #b8b8bd;height:0;margin:6px 0}
+.rct-total{display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding:3px 0}
+.rct-net{display:flex;justify-content:space-between;font-size:14px;font-weight:700;padding:7px 0 0;border-top:2px solid #1c1c1e;margin-top:4px}
+.rct-net.neg .am{color:#ff3b30}
+.rct-foot{text-align:center;font-size:10px;color:#8e8e93;padding:8px 0 12px;line-height:1.7;letter-spacing:1px}
+.receipt .empty{padding:10px 0;text-align:center}
+
 /* 年度页 */
 .yrow{display:grid;grid-template-columns:32px 1fr 1fr 1fr 1.1fr;gap:3px;justify-content:stretch}
 .yrow .d{font-weight:600}
