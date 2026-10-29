@@ -197,7 +197,7 @@ function vMonth() {
     ${wageRows}
     <div class="row"><span>其他收入(下方明细自动汇总)</span><span class="val">${fmt(t.otherIncome)}</span></div>
     ${incs.map(incRow).join('')}
-    <button class="btn ghost" data-act="addInc">＋ 添加其他收入</button>
+    <button class="btn ghost" data-act="addInc">＋ 添加收入</button>
     <div class="row total"><span>收入合计</span><span class="val">${fmt(t.income)}</span></div>
   </div>
 
@@ -474,7 +474,7 @@ function expModal(e) {
 function incModal(e) {
   modalCtx = { kind: 'inc', id: e ? e.id : null };
   openModal(`
-    <div class="sheet-title">${e ? '编辑其他收入' : '添加其他收入'}</div>
+    <div class="sheet-title">${e ? '编辑收入' : '记一笔收入'}</div>
     <input id="m-source" type="text" maxlength="20" placeholder="来源(如 年终奖 / 红包 / 利息)" value="${e ? esc(e.source) : ''}">
     <input id="m-amount" type="text" inputmode="decimal" placeholder="金额(元)" value="${e ? e.amount : ''}">
     <input id="m-date" type="date" value="${e ? e.date : defDate()}">
@@ -492,7 +492,7 @@ function addModal() {
   openModal(`
     <div class="sheet-title">记一笔 · ${curDay}</div>
     <button class="btn ghost" data-madd="exp">记一笔支出</button>
-    <button class="btn ghost" data-madd="inc">记一笔其他收入</button>
+    <button class="btn ghost" data-madd="inc">记一笔收入</button>
     <div class="sheet-btns">
       <button class="btn ghost" data-mclose>取消</button>
     </div>`);
