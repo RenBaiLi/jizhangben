@@ -85,6 +85,7 @@ function tsName() {
 }
 /* 记一笔的默认日期:看的是本月就用今天,看其他月就用那个月的1号 */
 function defDate() {
+  if (curDay) return curDay;   // 在日详情页点记账, 默认就是正在看的那天
   const n = new Date();
   return (cur.y === n.getFullYear() && cur.m === n.getMonth() + 1)
     ? today() : `${cur.y}-${pad2(cur.m)}-01`;
@@ -108,7 +109,7 @@ function setTab(t) { tab = t; if (t === 'year') curY = cur.y; curDay = null; ren
 function render() {
   renderTop();
   view.innerHTML = tab === 'month' ? vMonth() : tab === 'year' ? vYear() : vMe();
-  fab.style.display = tab === 'month' ? 'flex' : 'none';
+  fab.style.display = (tab === 'month' && !curDay) ? 'flex' : 'none';
   document.querySelectorAll('#tabbar button').forEach(b =>
     b.classList.toggle('on', b.dataset.tab === tab));
   view.scrollIntoView();
@@ -486,7 +487,16 @@ function incModal(e) {
   setTimeout(() => { const i = document.getElementById('m-source'); if (i) i.focus(); }, 80);
 }
 
-/* (当日明细改为整页跳转 vDay, 见 vMonth) */
+/* 日详情页的记账入口: 先选记支出还是记收入 */
+function addModal() {
+  openModal(`
+    <div class="sheet-title">记一笔 · ${curDay}</div>
+    <button class="btn ghost" data-madd="exp">记一笔支出</button>
+    <button class="btn ghost" data-madd="inc">记一笔其他收入</button>
+    <div class="sheet-btns">
+      <button class="btn ghost" data-mclose>取消</button>
+    </div>`);
+}
 
 function saveModal() {
   const ctx = modalCtx;
@@ -543,7 +553,7 @@ topbar.addEventListener('click', e => {
   if (t === 'prevY') curY--;
   if (t === 'nextY') curY++;
   if (t === 'backDay') { curDay = null; }
-  if (t === 'addToday') { expModal(null); return; }  // 在日详情页直接记今天
+  if (t === 'addToday') { addModal(); return; }  // 日详情页记账: 先选支出还是收入
   render();
 });
 
@@ -602,6 +612,8 @@ modalRoot.addEventListener('click', e => {
   }
   if (t.closest('[data-msave]')) { saveModal(); return; }
   if (t.closest('[data-mdel]')) { if (confirm('删除这条记录?')) delEntry(); }
+  const madd = t.closest('[data-madd]');
+  if (madd) { closeModal(); if (madd.dataset.madd === 'exp') expModal(null); else incModal(null); return; }
 });
 
 /* ================= 备份 / 恢复 ================= */
