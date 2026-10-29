@@ -382,7 +382,8 @@ function vYear() {
     <div class="card-title">${Y}年 每月一览<small>点月份看明细</small></div>
     ${rows}
   </div>
-  <button class="btn primary big" data-act="export">导出 ${Y} 年 Excel</button>`;
+    <button class="btn primary big" data-act="export">导出 Excel</button>
+  </div>`;
 }
 
 /* ================= 我的页 ================= */
@@ -404,7 +405,7 @@ function vMe() {
     <button class="btn ghost" data-act="backup">📤 备份数据 (导出JSON)</button>
     <label class="btn ghost">📥 恢复备份 (导入JSON)<input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
     <button class="btn danger" data-act="wipe">🗑 清空全部数据</button>
-    <button class="btn primary" data-act="export">📊 导出 ${cur.y} 年 Excel</button>
+    <button class="btn primary" data-act="export">📊 导出 Excel</button>
   </div>
   <div class="card about">
     <div class="card-title">关于 · 曾老师记账法</div>
@@ -489,6 +490,20 @@ function incModal(e) {
       <button class="btn primary" data-msave>保存</button>
     </div>`);
   setTimeout(() => { const i = document.getElementById('m-source'); if (i) i.focus(); }, 80);
+}
+
+/* 导出选年弹层: 列出所有有数据的年份 + 今年 */
+function exportModal() {
+  const yearsSet = new Set([cur.y]);
+  for (const k of Object.keys(DB.months)) yearsSet.add(+k.slice(0, 4));
+  const years = [...yearsSet].sort((a, b) => b - a);
+  openModal(`
+    <div class="sheet-title">导出 Excel</div>
+    <p class="hint">选择要导出的年份</p>
+    ${years.map(y => `<button class="btn ghost" data-mexport="${y}" style="margin-top:6px">📊 ${y} 年</button>`).join('')}
+    <div class="sheet-btns" style="margin-top:10px">
+      <button class="btn ghost" data-mclose>取消</button>
+    </div>`);
 }
 
 /* 日详情页的记账入口: 先选记支出还是记收入 */
@@ -581,7 +596,7 @@ view.addEventListener('click', e => {
   else if (act === 'editInc') { const f = findEntry('incomes', el.dataset.id); if (f) incModal(f.e); }
   else if (act === 'day') { curDay = el.dataset.date; render(); }
   else if (act === 'gotoM') { cur = { y: curY, m: +el.dataset.m }; setTab('month'); }
-  else if (act === 'export') exportYear(tab === 'year' ? curY : cur.y);
+  else if (act === 'export') exportModal();
   else if (act === 'backup') backup();
   else if (act === 'wipe') {
     if (confirm('确定清空全部数据?此操作不可恢复!') && confirm('再想一下,真的要清空吗?建议先备份。')) {
@@ -616,6 +631,8 @@ modalRoot.addEventListener('click', e => {
   }
   if (t.closest('[data-msave]')) { saveModal(); return; }
   if (t.closest('[data-mdel]')) { if (confirm('删除这条记录?')) delEntry(); }
+  const mx = t.closest('[data-mexport]');
+  if (mx) { closeModal(); exportYear(+mx.dataset.mexport); return; }
   const madd = t.closest('[data-madd]');
   if (madd) { closeModal(); if (madd.dataset.madd === 'exp') expModal(null); else incModal(null); return; }
 });
