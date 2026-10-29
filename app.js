@@ -94,6 +94,7 @@ function defDate() {
 const now = new Date();
 let cur = { y: now.getFullYear(), m: now.getMonth() + 1 };  // 本月页当前看的月份
 let curY = cur.y;                                           // 年度页当前看的年份
+let curDay = null;                                          // 本月页点开的某一天(YYYY-MM-DD), null=月视图
 let tab = 'month';
 let modalCtx = null;
 
@@ -102,7 +103,7 @@ const topbar = document.getElementById('topbar');
 const fab = document.getElementById('fab');
 const modalRoot = document.getElementById('modalRoot');
 
-function setTab(t) { tab = t; if (t === 'year') curY = cur.y; render(); }
+function setTab(t) { tab = t; if (t === 'year') curY = cur.y; curDay = null; render(); }
 
 function render() {
   renderTop();
@@ -113,10 +114,15 @@ function render() {
   view.scrollIntoView();
   window.scrollTo(0, 0);
 }
-
 function renderTop() {
-  if (tab === 'month')
-    topbar.innerHTML = `<button class="nav" data-t="prevM">‹</button><div class="t">${cur.y}年${cur.m}月</div><button class="nav" data-t="nextM">›</button>`;
+  if (tab === 'month') {
+    if (curDay) {
+      const [yy, mm, dd] = curDay.split('-');
+      topbar.innerHTML = `<button class="nav" data-t="backDay">‹</button><div class="t">${+mm}月${+dd}日 收支</div><button class="nav" data-t="addToday">＋</button>`;
+    } else {
+      topbar.innerHTML = `<button class="nav" data-t="prevM">‹</button><div class="t">${cur.y}年${cur.m}月</div><button class="nav" data-t="nextM">›</button>`;
+    }
+  }
   else if (tab === 'year')
     topbar.innerHTML = `<button class="nav" data-t="prevY">‹</button><div class="t">${curY}年</div><button class="nav" data-t="nextY">›</button>`;
   else
@@ -161,6 +167,7 @@ function calHeat(y, m) {
 }
 
 function vMonth() {
+  if (curDay) return vDay(curDay);
   const { y, m } = cur;
   const t = totals(y, m), carry = carryover(y, m), bal = balance(y, m);
   const d = mData(y, m);
@@ -199,6 +206,52 @@ function vMonth() {
     ${exps.length ? exps.map(expRow).join('') : '<div class="empty">还没有支出记录,点右下角 ＋ 记一笔</div>'}
     <div class="row total"><span>支出合计</span><span class="val">${fmt(t.expense)}</span></div>
   </div>`;
+}
+
+/* 当日收支详情页: 点日历格子跳转过来的 */
+function vDay(dateStr) {
+  const yy = +dateStr.slice(0, 4), mm = +dateStr.slice(5, 7), dd = +dateStr.slice(8, 10);
+  const d = mData(yy, mm);
+  const exps = d.expenses.filter(e => e.date === dateStr).sort((a, b) => b.amount - a.amount);
+  const incs = d.incomes.filter(e => e.date === dateStr);
+  const expSum = r2(exps.reduce((s, e) => s + e.amount, 0));
+  const incSum = r2(incs.reduce((s, e) => s + e.amount, 0));
+  const net = r2(incSum - expSum);
+  const expRows = exps.length
+    ? exps.map(e => `<div class="row entry tap" data-act="editExp" data-id="${e.id}">
+        <span class="chip ${e.person}">${esc(pName(e.person))}</span>
+        <span class="note">${esc(e.note) || '—'}</span>
+        <span class="amt">${fmt(e.amount)}</span></div>`).join('')
+    : '<div class="empty">这天没有支出记录,点右上角 ＋ 记一笔</div>';
+  const incRows = incs.length
+    ? incs.map(e => `<div class="row entry tap" data-act="editInc" data-id="${e.id}">
+        <span class="chip inc">${esc(e.source) || '收入'}</span>
+        <span class="note">${esc(e.note) || '—'}</span>
+        <span class="amt">+${fmt(e.amount)}</span></div>`).join('')
+    : '';
+  return `
+  <div class="card hero">
+    <div class="hero-label">${mm}月${dd}日 收支详情</div>
+    <div class="hero-bal ${net < 0 ? 'neg' : ''}">${fmt(net)}</div>
+    <div class="hero-stats">
+      <div><span>当日收入</span><b>+${fmt(incSum)}</b></div>
+      <div><span>当日支出</span><b>-${fmt(expSum)}</b></div>
+      <div><span>当天净额</span><b>${net < 0 ? '' : '+'}${fmt(net)}</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">支出明细<small>共 ${exps.length} 笔</small></div>
+    ${expRows}
+    ${expRows ? `<div class="row total"><span>支出小计</span><span class="val">${fmt(expSum)}</span></div>` : ''}
+  </div>
+
+  ${incRows ? `
+  <div class="card">
+    <div class="card-title">其他收入<small>共 ${incs.length} 笔</small></div>
+    ${incRows}
+    <div class="row total"><span>收入小计</span><span class="val">${fmt(incSum)}</span></div>
+  </div>` : ''}`;
 }
 
 /* 年度页月度收支柱状图: 绿=收入 红=支出, 同月成对 */
@@ -429,36 +482,7 @@ function incModal(e) {
   setTimeout(() => { const i = document.getElementById('m-source'); if (i) i.focus(); }, 80);
 }
 
-/* 当日花费明细: 点日历格子弹出当天所有支出 */
-function dayModal(dateStr) {
-  const yy = +dateStr.slice(0, 4), mm = +dateStr.slice(5, 7), dd = +dateStr.slice(8, 10);
-  const d = mData(yy, mm);
-  const exps = d.expenses.filter(e => e.date === dateStr).sort((a, b) => b.amount - a.amount);
-  const incs = d.incomes.filter(e => e.date === dateStr);
-  const expSum = r2(exps.reduce((s, e) => s + e.amount, 0));
-  const incSum = r2(incs.reduce((s, e) => s + e.amount, 0));
-  const rows = exps.length
-    ? exps.map(e => `<div class="row entry tap" data-act="editExp" data-id="${e.id}">
-        <span class="chip ${e.person}">${esc(pName(e.person))}</span>
-        <span class="note">${esc(e.note) || '—'}</span>
-        <span class="amt">${fmt(e.amount)}</span></div>`).join('')
-    : '<div class="empty">这天没有支出记录</div>';
-  const incRows = incs.length
-    ? incs.map(e => `<div class="row entry tap" data-act="editInc" data-id="${e.id}">
-        <span class="chip inc">${esc(e.source) || '收入'}</span>
-        <span class="note">${esc(e.note) || '—'}</span>
-        <span class="amt">+${fmt(e.amount)}</span></div>`).join('')
-    : '';
-  openModal(`
-    <div class="sheet-title">${mm}月${dd}日 收支明细</div>
-    <div class="card-title" style="margin-top:4px">支出 <small>共 ${exps.length} 笔 · ${fmt(expSum)}</small></div>
-    ${rows}
-    ${incRows ? `<div class="card-title" style="margin-top:12px">其他收入 <small>共 ${incs.length} 笔 · ${fmt(incSum)}</small></div>${incRows}` : ''}
-    <div class="sheet-btns">
-      <button class="btn ghost" data-mclose>关闭</button>
-      <button class="btn primary" data-mday-add>＋记一笔</button>
-    </div>`);
-}
+/* (当日明细改为整页跳转 vDay, 见 vMonth) */
 
 function saveModal() {
   const ctx = modalCtx;
@@ -514,6 +538,8 @@ topbar.addEventListener('click', e => {
   if (t === 'nextM') { cur.m++; if (cur.m > 12) { cur.m = 1; cur.y++; } }
   if (t === 'prevY') curY--;
   if (t === 'nextY') curY++;
+  if (t === 'backDay') { curDay = null; }
+  if (t === 'addToday') { expModal(null); return; }  // 在日详情页直接记今天
   render();
 });
 
@@ -535,7 +561,7 @@ view.addEventListener('click', e => {
   else if (act === 'addInc') incModal(null);
   else if (act === 'editExp') { const f = findEntry('expenses', el.dataset.id); if (f) expModal(f.e); }
   else if (act === 'editInc') { const f = findEntry('incomes', el.dataset.id); if (f) incModal(f.e); }
-  else if (act === 'day') { dayModal(el.dataset.date); }
+  else if (act === 'day') { curDay = el.dataset.date; render(); }
   else if (act === 'gotoM') { cur = { y: curY, m: +el.dataset.m }; setTab('month'); }
   else if (act === 'export') exportYear(tab === 'year' ? curY : cur.y);
   else if (act === 'backup') backup();
@@ -572,7 +598,6 @@ modalRoot.addEventListener('click', e => {
   }
   if (t.closest('[data-msave]')) { saveModal(); return; }
   if (t.closest('[data-mdel]')) { if (confirm('删除这条记录?')) delEntry(); }
-  if (t.closest('[data-mday-add]')) { closeModal(); expModal(null); return; }
 });
 
 /* ================= 备份 / 恢复 ================= */
