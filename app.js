@@ -202,7 +202,7 @@ function vMonth() {
 
   <div class="card">
     <div class="card-title">支出<small>${expSub}</small></div>
-    ${exps.length ? calHeat(y, m) : ''}
+    ${calHeat(y, m)}
     ${exps.length ? exps.map(expRow).join('') : '<div class="empty">还没有支出记录,点右下角 ＋ 记一笔</div>'}
     <div class="row total"><span>支出合计</span><span class="val">${fmt(t.expense)}</span></div>
   </div>`;
