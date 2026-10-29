@@ -145,9 +145,13 @@ function calHeat(y, m) {
   const cls = v => v == null ? '' : v < 100 ? 'h1' : v < 500 ? 'h2' : 'h3';
   let cells = '';
   for (let i = 0; i < off; i++) cells += '<span class="cd"></span>';
+  const todayStr = today();
   for (let d = 1; d <= days; d++) {
     const v = dm[d];
-    cells += `<span class="cd ${cls(v)}"${v != null ? ` title="${d}日 支出 ${fmt(v)}"` : ''}>${d}</span>`;
+    const ds = `${y}-${pad2(m)}-${pad2(d)}`;
+    cells += v != null
+      ? `<span class="cd ${cls(v)} tap${ds === todayStr ? ' now' : ''}" data-act="day" data-date="${ds}" title="${d}日 支出 ${fmt(v)} · 点击查看">${d}</span>`
+      : `<span class="cd${ds === todayStr ? ' now' : ''}" title="${d}日 无支出">${d}</span>`;
   }
   return `<div class="cal">
     <div class="cal-w"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
@@ -425,6 +429,37 @@ function incModal(e) {
   setTimeout(() => { const i = document.getElementById('m-source'); if (i) i.focus(); }, 80);
 }
 
+/* 当日花费明细: 点日历格子弹出当天所有支出 */
+function dayModal(dateStr) {
+  const yy = +dateStr.slice(0, 4), mm = +dateStr.slice(5, 7), dd = +dateStr.slice(8, 10);
+  const d = mData(yy, mm);
+  const exps = d.expenses.filter(e => e.date === dateStr).sort((a, b) => b.amount - a.amount);
+  const incs = d.incomes.filter(e => e.date === dateStr);
+  const expSum = r2(exps.reduce((s, e) => s + e.amount, 0));
+  const incSum = r2(incs.reduce((s, e) => s + e.amount, 0));
+  const rows = exps.length
+    ? exps.map(e => `<div class="row entry tap" data-act="editExp" data-id="${e.id}">
+        <span class="chip ${e.person}">${esc(pName(e.person))}</span>
+        <span class="note">${esc(e.note) || '—'}</span>
+        <span class="amt">${fmt(e.amount)}</span></div>`).join('')
+    : '<div class="empty">这天没有支出记录</div>';
+  const incRows = incs.length
+    ? incs.map(e => `<div class="row entry tap" data-act="editInc" data-id="${e.id}">
+        <span class="chip inc">${esc(e.source) || '收入'}</span>
+        <span class="note">${esc(e.note) || '—'}</span>
+        <span class="amt">+${fmt(e.amount)}</span></div>`).join('')
+    : '';
+  openModal(`
+    <div class="sheet-title">${mm}月${dd}日 收支明细</div>
+    <div class="card-title" style="margin-top:4px">支出 <small>共 ${exps.length} 笔 · ${fmt(expSum)}</small></div>
+    ${rows}
+    ${incRows ? `<div class="card-title" style="margin-top:12px">其他收入 <small>共 ${incs.length} 笔 · ${fmt(incSum)}</small></div>${incRows}` : ''}
+    <div class="sheet-btns">
+      <button class="btn ghost" data-mclose>关闭</button>
+      <button class="btn primary" data-mday-add>＋记一笔</button>
+    </div>`);
+}
+
 function saveModal() {
   const ctx = modalCtx;
   if (!ctx) return;
@@ -500,6 +535,7 @@ view.addEventListener('click', e => {
   else if (act === 'addInc') incModal(null);
   else if (act === 'editExp') { const f = findEntry('expenses', el.dataset.id); if (f) expModal(f.e); }
   else if (act === 'editInc') { const f = findEntry('incomes', el.dataset.id); if (f) incModal(f.e); }
+  else if (act === 'day') { dayModal(el.dataset.date); }
   else if (act === 'gotoM') { cur = { y: curY, m: +el.dataset.m }; setTab('month'); }
   else if (act === 'export') exportYear(tab === 'year' ? curY : cur.y);
   else if (act === 'backup') backup();
@@ -536,6 +572,7 @@ modalRoot.addEventListener('click', e => {
   }
   if (t.closest('[data-msave]')) { saveModal(); return; }
   if (t.closest('[data-mdel]')) { if (confirm('删除这条记录?')) delEntry(); }
+  if (t.closest('[data-mday-add]')) { closeModal(); expModal(null); return; }
 });
 
 /* ================= 备份 / 恢复 ================= */
