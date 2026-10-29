@@ -245,7 +245,7 @@ function vDay(dateStr) {
   return `
   <div class="receipt">
     <div class="rct-head">
-      <div class="store">家 庭 账</div>
+      <div class="store">记 账 日 报</div>
       <div class="date">${yy}-${pad2(mm)}-${pad2(dd)} 周${wkday}</div>
       <div class="sub">当日收支小票</div>
     </div>
