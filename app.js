@@ -231,15 +231,16 @@ function vDay(dateStr) {
       <span class="am">+${fmt(e.amount).slice(1)}</span>
     </div>`).join('');
 
-  const body = !exps.length && !incs.length
-    ? '<div class="empty">这天还没有收支记录</div>'
-    : `${expLines
+  const hasData = exps.length || incs.length;
+  const body = hasData
+    ? `${expLines
       }<div class="rct-dash"></div>
       <div class="rct-total"><span>支出小计</span><span class="am">${fmt(expSum).slice(1)}</span></div>`
       + (incLines
         ? `${incLines}<div class="rct-dash"></div>
           <div class="rct-total"><span>收入小计</span><span class="am">${fmt(incSum).slice(1)}</span></div>`
-        : '');
+        : '')
+    : '<div class="empty">今日无收支</div>';
 
   return `
   <div class="receipt">
